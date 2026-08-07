@@ -35,6 +35,12 @@ export function Dialog({
         onClick={onClose}
         className="fixed inset-0 z-[60] bg-ink/85 backdrop-blur-sm"
       />
+      {/*
+        Centered by this flex wrapper, not by -translate-x-1/2: Framer Motion
+        writes an inline `transform` that would override a Tailwind translate
+        class and leave the dialog offset by half its size.
+      */}
+      <div className="pointer-events-none fixed inset-0 z-[61] flex items-end justify-center sm:items-center sm:p-6">
       <motion.div
         role="dialog"
         aria-modal="true"
@@ -44,9 +50,8 @@ export function Dialog({
         exit={{ opacity: 0, y: 16, scale: 0.985 }}
         transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
         className={clsx(
-          'fixed inset-x-0 bottom-0 z-[61] flex max-h-[90dvh] flex-col overflow-hidden rounded-t-2xl border border-ink-line bg-ink-raised shadow-vault',
-          'sm:inset-x-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl',
-          wide ? 'sm:w-[min(42rem,calc(100vw-3rem))]' : 'sm:w-[min(30rem,calc(100vw-3rem))]'
+          'pointer-events-auto flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-ink-line bg-ink-raised shadow-vault sm:rounded-2xl',
+          wide ? 'sm:w-[min(42rem,100%)]' : 'sm:w-[min(30rem,100%)]'
         )}
       >
         <div className="flex items-start justify-between gap-4 border-b border-ink-line px-5 py-4">
@@ -73,6 +78,7 @@ export function Dialog({
           </div>
         )}
       </motion.div>
+      </div>
     </>
   )
 }

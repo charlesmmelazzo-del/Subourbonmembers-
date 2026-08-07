@@ -335,10 +335,12 @@ function DaySheet({
         onClick={onClose}
         className="fixed inset-0 z-50 bg-ink/85 backdrop-blur-sm"
       />
+      {/* Centered by the wrapper — see the note in components/ui/Dialog.tsx. */}
+      <div className="pointer-events-none fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
       <motion.div
         initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
         transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-        className="fixed inset-x-0 bottom-0 z-50 max-h-[70dvh] overflow-y-auto rounded-t-2xl border border-ink-line bg-ink-raised p-5 shadow-vault sm:inset-x-auto sm:left-1/2 sm:top-1/2 sm:w-[min(28rem,calc(100vw-3rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl"
+        className="pointer-events-auto max-h-[70dvh] w-full overflow-y-auto rounded-t-2xl border border-ink-line bg-ink-raised p-5 shadow-vault sm:w-[min(28rem,100%)] sm:rounded-2xl"
       >
         <p className="label">{format(day, 'EEEE')}</p>
         <h2 className="mt-1 font-display text-xl">{format(day, 'MMMM d, yyyy')}</h2>
@@ -362,6 +364,7 @@ function DaySheet({
           })}
         </ul>
       </motion.div>
+      </div>
     </>
   )
 }

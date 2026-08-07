@@ -76,6 +76,8 @@ export function EventDetail({
         onClick={onClose}
         className="fixed inset-0 z-50 bg-ink/85 backdrop-blur-sm"
       />
+      {/* Centered by the wrapper — see the note in components/ui/Dialog.tsx. */}
+      <div className="pointer-events-none fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
       <motion.div
         role="dialog"
         aria-modal="true"
@@ -84,7 +86,7 @@ export function EventDetail({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 30, scale: 0.985 }}
         transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-        className="fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col overflow-hidden rounded-t-2xl border border-ink-line bg-ink-raised shadow-vault sm:inset-x-auto sm:left-1/2 sm:top-1/2 sm:max-h-[88dvh] sm:w-[min(38rem,calc(100vw-3rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl"
+        className="pointer-events-auto relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-ink-line bg-ink-raised shadow-vault sm:max-h-[88dvh] sm:w-[min(38rem,100%)] sm:rounded-2xl"
       >
         <button
           onClick={onClose}
@@ -252,6 +254,7 @@ export function EventDetail({
           </div>
         </div>
       </motion.div>
+      </div>
     </>
   )
 }

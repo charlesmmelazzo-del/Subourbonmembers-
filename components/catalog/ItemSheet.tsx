@@ -117,23 +117,30 @@ export function ItemSheet({
         className="fixed inset-0 z-50 bg-ink/85 backdrop-blur-sm"
       />
 
-      {/* Sheet — bottom sheet on mobile, centered panel on desktop */}
-      <motion.div
-        role="dialog"
-        aria-modal="true"
-        aria-label={item.name}
-        drag="y"
-        dragConstraints={{ top: 0, bottom: 0 }}
-        dragElastic={{ top: 0, bottom: 0.4 }}
-        onDragEnd={(_, info) => {
-          if (info.offset.y > 120 || info.velocity.y > 600) onClose()
-        }}
-        initial={{ opacity: 0, y: 40, scale: 0.985 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 30, scale: 0.985 }}
-        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-        className="fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col overflow-hidden rounded-t-2xl border border-ink-line bg-ink-raised shadow-vault sm:inset-x-auto sm:left-1/2 sm:top-1/2 sm:max-h-[88dvh] sm:w-[min(46rem,calc(100vw-3rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl"
-      >
+      {/*
+        Sheet — bottom sheet on mobile, centered panel on desktop.
+        Centering is done by this flex wrapper rather than -translate-x-1/2:
+        Framer Motion writes an inline `transform` for its animation, which
+        would silently override a Tailwind translate class and leave the panel
+        offset by half its size.
+      */}
+      <div className="pointer-events-none fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
+        <motion.div
+          role="dialog"
+          aria-modal="true"
+          aria-label={item.name}
+          drag="y"
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={{ top: 0, bottom: 0.4 }}
+          onDragEnd={(_, info) => {
+            if (info.offset.y > 120 || info.velocity.y > 600) onClose()
+          }}
+          initial={{ opacity: 0, y: 40, scale: 0.985 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 30, scale: 0.985 }}
+          transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+          className="pointer-events-auto relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-ink-line bg-ink-raised shadow-vault sm:max-h-[88dvh] sm:w-[min(46rem,100%)] sm:rounded-2xl"
+        >
         {/* Drag handle, mobile only */}
         <div className="flex justify-center pt-2 sm:hidden">
           <div className="h-1 w-10 rounded-full bg-ink-line" />
@@ -411,7 +418,8 @@ export function ItemSheet({
             )}
           </div>
         </div>
-      </motion.div>
+        </motion.div>
+      </div>
 
       {/* ---- Sub-panels ---- */}
       {panel === 'note' && (

@@ -8,7 +8,8 @@
     "start": "next start -p ${PORT:-3000}",
     "lint": "next lint",
     "check": "tsx scripts/check-setup.ts",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "check:auth": "tsx scripts/check-auth.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
