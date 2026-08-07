@@ -91,6 +91,23 @@ async function insertAll(
   return rows.length
 }
 
+/**
+ * Profile upsert that actually checks its result.
+ *
+ * A rejected profile row leaves the one the auth trigger created — role
+ * `member`, tier `junior` — so a failure here silently demotes the account
+ * instead of failing the seed.
+ */
+async function upsertProfile(row: Record<string, unknown>): Promise<void> {
+  const { error } = await db.from('profiles').upsert(row as never)
+  if (error) {
+    throw new Error(
+      `profiles: ${row.email} rejected — ${error.message}` +
+        (error.details ? `\n  ${error.details}` : '')
+    )
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Auth users
 // ---------------------------------------------------------------------------
@@ -165,6 +182,17 @@ async function wipe() {
     const { error } = await db.from(table).delete().not(column, 'is', null)
     if (error) throw new Error(`Could not clear ${table}: ${error.message}`)
   }
+
+  // Profiles survive a re-seed (they hang off auth users), but their member
+  // numbers are positional — S-002, SR-014 — so a row left over from an older
+  // run holds the number this run wants to give someone else, and the unique
+  // index rejects the whole profile. Release them all before reassigning.
+  const { error } = await db
+    .from('profiles')
+    .update({ member_number: null })
+    .not('member_number', 'is', null)
+  if (error) throw new Error(`Could not release member numbers: ${error.message}`)
+
   log('cleared', `${SEEDED_TABLES.length} tables`)
 }
 
@@ -179,13 +207,13 @@ async function main() {
 
   // --- Staff ---------------------------------------------------------------
   const staffIds: Record<string, string> = {}
-  for (const s of STAFF) {
+  for (const [i, s] of STAFF.entries()) {
     const id = await ensureUser(db, s.email, {
       first_name: s.first_name,
       last_name: s.last_name,
     })
     staffIds[s.email] = id
-    await db.from('profiles').upsert({
+    await upsertProfile({
       id,
       email: s.email,
       first_name: s.first_name,
@@ -195,7 +223,7 @@ async function main() {
       tier: 'senior',
       status: 'active',
       member_since: '2023-01-01',
-      member_number: `S-${Object.keys(staffIds).length.toString().padStart(3, '0')}`,
+      member_number: `S-${(i + 1).toString().padStart(3, '0')}`,
     })
   }
   const adminId = staffIds[STAFF[0].email]
@@ -211,7 +239,7 @@ async function main() {
       tier: m.tier,
     })
     memberIds.push(id)
-    await db.from('profiles').upsert({
+    await upsertProfile({
       id,
       email: m.email,
       first_name: m.first_name,
@@ -256,7 +284,7 @@ async function main() {
           last_name: rest.join(' '),
           tier: 'comember',
         })
-        await db.from('profiles').upsert({
+        await upsertProfile({
           id: coId,
           email: co.email,
           first_name: first,

@@ -40,9 +40,9 @@ const db = createClient(url, service, {
 })
 
 const ACCOUNTS = [
-  { email: 'admin@subourbon.bar', role: 'Admin', note: 'Admin panel, concierge view, and the member portal.' },
-  { email: 'senior@subourbon.bar', role: 'Senior member', note: 'Locker, co-members, private event requests.' },
-  { email: 'junior@subourbon.bar', role: 'Junior member', note: 'No locker, no private bookings — that is the tier.' },
+  { email: 'admin@subourbon.bar', role: 'Admin', expect: { role: 'admin', tier: 'senior' }, note: 'Admin panel, concierge view, and the member portal.' },
+  { email: 'senior@subourbon.bar', role: 'Senior member', expect: { role: 'member', tier: 'senior' }, note: 'Locker, co-members, private event requests.' },
+  { email: 'junior@subourbon.bar', role: 'Junior member', expect: { role: 'member', tier: 'junior' }, note: 'No locker, no private bookings — that is the tier.' },
 ] as const
 
 async function findUser(email: string): Promise<string | null> {
@@ -91,7 +91,9 @@ async function describe(memberId: string): Promise<string> {
 async function main() {
   console.log('\nSetting the password on your three test logins\n')
 
-  const found: Array<{ email: string; role: string; note: string; name: string; has: string }> = []
+  const found: Array<{
+    email: string; role: string; note: string; name: string; has: string; wrong?: string
+  }> = []
   let missing = false
 
   for (const account of ACCOUNTS) {
@@ -112,15 +114,25 @@ async function main() {
 
     const { data: profile } = await db
       .from('profiles')
-      .select('first_name, last_name')
+      .select('first_name, last_name, role, tier')
       .eq('id', id)
       .maybeSingle()
 
-    console.log(`  ${PASS} ${account.email}`)
+    // The label below is what the account is *meant* to be. Report what the
+    // profile actually says instead of taking that on faith — a seed that
+    // failed to write the profile leaves an account the auth trigger created,
+    // which is a junior member no matter what this script calls it.
+    const wrong =
+      profile && (profile.role !== account.expect.role || profile.tier !== account.expect.tier)
+        ? `profile says ${profile.role}/${profile.tier}, expected ${account.expect.role}/${account.expect.tier} — re-run \`npm run seed\``
+        : undefined
+
+    console.log(`  ${wrong ? FAIL : PASS} ${account.email}${wrong ? ` — ${wrong}` : ''}`)
     found.push({
       ...account,
       name: profile ? `${profile.first_name} ${profile.last_name}` : '—',
       has: await describe(id),
+      wrong,
     })
   }
 
@@ -135,6 +147,7 @@ async function main() {
   for (const a of found) {
     console.log(`  ${BOLD}${a.email}${OFF}`)
     console.log(`  ${DIM}${a.role} · ${a.name}${OFF}`)
+    if (a.wrong) console.log(`  ${FAIL} ${a.wrong}`)
     console.log(`  ${DIM}${a.has}${OFF}`)
     console.log(`  ${DIM}${a.note}${OFF}\n`)
   }
