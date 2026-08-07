@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body {
+    @apply bg-ink text-cream;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    font-family: theme('fontFamily.sans');
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: theme('fontFamily.display');
+    @apply font-normal tracking-tight;
+  }
+
+  /* The vault is dark. Keep native scrollbars from breaking the mood. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: theme('colors.ink.DEFAULT');
+  }
+  ::-webkit-scrollbar-thumb {
+    background: theme('colors.ink.line');
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3a3a46;
+  }
+
+  ::selection {
+    background: rgba(187, 175, 82, 0.3);
+    color: theme('colors.cream.warm');
+  }
+
+  /* Focus ring: gold, never the browser default blue. */
+  :focus-visible {
+    outline: 2px solid theme('colors.gold.DEFAULT');
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-ink-line bg-ink-card;
+  }
+
+  .label {
+    @apply text-[11px] uppercase tracking-[0.18em] text-cream-muted;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-ink-line bg-ink-raised px-3 py-2 text-sm text-cream
+           placeholder:text-cream-muted focus:border-gold/60 focus:outline-none;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm
+           font-medium transition-colors duration-base disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-gold {
+    @apply btn bg-gold text-ink hover:bg-gold-bright;
+  }
+
+  .btn-ghost {
+    @apply btn border border-ink-line text-cream hover:border-gold/50 hover:text-gold-bright;
+  }
+
+  /* Hairline rule with the brand's diamond centered in it. */
+  .rule-diamond {
+    @apply flex items-center gap-3 text-gold/40;
+  }
+  .rule-diamond::before,
+  .rule-diamond::after {
+    content: '';
+    @apply h-px flex-1 bg-gradient-to-r from-transparent via-gold/30 to-transparent;
+  }
+}
+
+@layer utilities {
+  .text-gold-gradient {
+    background: theme('backgroundImage.gold-gradient');
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
