@@ -6,7 +6,12 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl
   const code = searchParams.get('code')
   const next = searchParams.get('next')
-  const safeNext = next && next.startsWith('/') ? next : '/'
+  // /auth/landing picks the destination once the session exists — staff open on
+  // the admin panel, members on the portal.
+  const safeNext =
+    next && next.startsWith('/')
+      ? `/auth/landing?next=${encodeURIComponent(next)}`
+      : '/auth/landing'
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?reason=invalid-link`)

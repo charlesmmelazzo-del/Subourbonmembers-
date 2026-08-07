@@ -38,9 +38,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Already signed in — /auth/landing sorts staff from members.
   if (user && pathname === '/login') {
     const url = request.nextUrl.clone()
-    url.pathname = '/'
+    url.pathname = '/auth/landing'
     url.search = ''
     return NextResponse.redirect(url)
   }

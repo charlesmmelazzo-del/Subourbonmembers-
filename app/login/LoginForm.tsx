@@ -1,14 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Loader2, Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 type Mode = 'password' | 'link'
 
 export function LoginForm({ next }: { next?: string }) {
-  const router = useRouter()
   const [mode, setMode] = useState<Mode>('password')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -43,8 +41,14 @@ export function LoginForm({ next }: { next?: string }) {
       )
       return
     }
-    router.push(next && next.startsWith('/') ? next : '/')
-    router.refresh()
+    // A full load, not router.push: the server decides where this account
+    // belongs (staff land on the admin panel) and it needs the session cookie
+    // the client just set.
+    window.location.assign(
+      next && next.startsWith('/')
+        ? `/auth/landing?next=${encodeURIComponent(next)}`
+        : '/auth/landing'
+    )
   }
 
   if (sent) {
