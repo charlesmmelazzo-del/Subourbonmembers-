@@ -13,6 +13,15 @@ import { isStaff } from '@/lib/types'
  * still reach the portal from the admin nav; this only decides the first page.
  */
 export async function GET(request: NextRequest) {
+  // Redirect off nextUrl, never `request.url`: behind Railway's proxy that one
+  // carries the internal origin, and the browser is sent to localhost.
+  const redirectTo = (path: string, search = '') => {
+    const url = request.nextUrl.clone()
+    url.pathname = path
+    url.search = search
+    return NextResponse.redirect(url)
+  }
+
   const next = request.nextUrl.searchParams.get('next')
   const profile = await getProfile()
 
@@ -21,15 +30,14 @@ export async function GET(request: NextRequest) {
   // back here, and the two would bounce off each other forever.
   if (!profile || profile.status === 'removed') {
     await createClient().auth.signOut()
-    const reason = profile ? '?reason=inactive' : ''
-    return NextResponse.redirect(new URL(`/login${reason}`, request.url))
+    return redirectTo('/login', profile ? '?reason=inactive' : '')
   }
 
   // An explicit destination — a deep link the member was bounced off — wins.
-  const path =
-    next && next.startsWith('/') && !next.startsWith('//') ? next
-    : isStaff(profile.role) ? '/admin'
-    : '/'
+  if (next && next.startsWith('/') && !next.startsWith('//')) {
+    const [pathname, search] = next.split('?')
+    return redirectTo(pathname, search ? `?${search}` : '')
+  }
 
-  return NextResponse.redirect(new URL(path, request.url))
+  return redirectTo(isStaff(profile.role) ? '/admin' : '/')
 }
