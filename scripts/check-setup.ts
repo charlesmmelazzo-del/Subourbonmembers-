@@ -132,33 +132,9 @@ async function main() {
     ok(`All ${EXPECTED_TABLES.length} tables present`)
   }
 
-  // --- Step 4: RLS --------------------------------------------------------
-  // The anon client must NOT be able to read profiles. If it can, 0002 didn't
-  // run and every member can read every other member's data.
-  console.log('\nSecurity — migration 0002_rls.sql')
-  const anonDb = createClient(url!, anon!, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
-  const { data: leaked, error: rlsError } = await anonDb.from('profiles').select('id').limit(1)
-
-  if (rlsError && /permission denied|row-level security/i.test(rlsError.message)) {
-    ok('Row-level security is on — signed-out visitors are blocked')
-  } else if (leaked && leaked.length > 0) {
-    bad(
-      'Row-level security is NOT protecting your member data',
-      'Run supabase/migrations/0002_rls.sql. Until you do, anyone with the public key can read every member.'
-    )
-  } else if (!rlsError) {
-    // Empty table, so nothing leaked — but that is not proof RLS is on.
-    warn(
-      'Could not confirm row-level security (the table is empty)',
-      'Run this again after seeding to get a real answer.'
-    )
-  } else {
-    ok('Row-level security appears to be on')
-  }
-
-  // --- Step 5: existing data ----------------------------------------------
+  // --- Step 4: data -------------------------------------------------------
+  // Counted before the security check, because the security check needs to
+  // know whether there is anything there to leak.
   console.log('\nData')
   const [{ count: members }, { count: bottles }, { count: events }] = await Promise.all([
     db.from('profiles').select('id', { count: 'exact', head: true }),
@@ -170,6 +146,39 @@ async function main() {
     warn('No members yet', 'Run `npm run seed` to load the demo membership.')
   } else {
     ok('Seeded', `${members} profiles · ${bottles} bottles · ${events} events`)
+  }
+
+  // --- Step 5: RLS --------------------------------------------------------
+  // A signed-out client must not be able to read profiles. Postgres enforces
+  // this by returning an empty set, not an error — so an empty result is only
+  // meaningful when we know the table actually has rows in it.
+  console.log('\nSecurity — migration 0002_rls.sql')
+  const anonDb = createClient(url!, anon!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  const { data: leaked, error: rlsError } = await anonDb.from('profiles').select('id').limit(1)
+  const leakedCount = leaked?.length ?? 0
+
+  if (leakedCount > 0) {
+    bad(
+      'Row-level security is NOT protecting your member data',
+      'A signed-out visitor can read your members. Run supabase/migrations/0002_rls.sql.'
+    )
+  } else if (rlsError && /permission denied|row-level security/i.test(rlsError.message)) {
+    ok('Row-level security is on — signed-out visitors are blocked')
+  } else if (rlsError) {
+    warn(`Unexpected response while testing security: ${rlsError.message}`, 'Worth a look.')
+  } else if ((members ?? 0) > 0) {
+    // Service role sees rows, the public key sees none. That is RLS working.
+    ok(
+      'Row-level security is on',
+      `— ${members} profiles exist, a signed-out visitor sees 0`
+    )
+  } else {
+    warn(
+      'Cannot confirm row-level security yet — there is no data to protect',
+      'Run `npm run seed`, then run this again for a real answer.'
+    )
   }
 
   // --- Summary ------------------------------------------------------------

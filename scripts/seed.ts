@@ -357,7 +357,9 @@ async function main() {
 
       // Two to five line items per visit.
       const checkId = `CHK-${memberId.slice(0, 6)}-${v}`
-      const at = new Date(`${day}T${randInt(17, 22)}:${randInt(0, 59)}:00Z`)
+      // Zero-pad both parts — "T17:5:00Z" is not a valid timestamp.
+      const pad = (n: number) => String(n).padStart(2, '0')
+      const at = new Date(`${day}T${pad(randInt(17, 22))}:${pad(randInt(0, 59))}:00Z`)
       const [lo, hi] = SPEND_PER_VISIT[m.spend_band]
       const target = randInt(lo, hi)
       let spent = 0
