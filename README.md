@@ -84,11 +84,18 @@ npm run dev
 1. Push to GitHub, then create a Railway service from the repo.
 2. Set the variables from `.env.example` — Railway provides `PORT` itself.
 3. Railway detects Next.js and runs `npm run build` then `npm start`.
-4. Add `members.subourbon.bar` under Settings → Networking, and point a CNAME
-   at the Railway domain.
-5. In Supabase → Authentication → URL Configuration, add
-   `https://members.subourbon.bar/auth/callback` as a redirect URL. Sign-in
-   links break without this.
+4. In Supabase → Authentication → URL Configuration:
+   - **Site URL** → the Railway domain, e.g.
+     `https://subourbonmembers-production.up.railway.app`
+   - **Redirect URLs** → add `<that domain>/auth/callback`, plus
+     `http://localhost:3000/auth/callback` for local work.
+
+   Sign-in links and member invitations fail silently without these.
+
+Nothing in the code hardcodes a domain — redirects are built from the incoming
+request's own origin, so the app works on the Railway domain and on a custom
+domain without a code change. **If you later add a custom domain, the only
+change needed is adding its callback URL to that same Supabase list.**
 
 ---
 
