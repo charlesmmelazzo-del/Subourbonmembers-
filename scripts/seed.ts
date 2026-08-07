@@ -65,6 +65,32 @@ function log(step: string, detail = '') {
   console.log(`  ${step.padEnd(28)} ${detail}`)
 }
 
+/**
+ * Chunked insert that actually checks its result.
+ *
+ * Postgres rejects a whole batch when any row in it violates a constraint, so
+ * an unchecked insert can drop thousands of rows and still print a cheerful
+ * count. Throw instead — a seed that lies about what it loaded is worse than
+ * one that fails.
+ */
+async function insertAll(
+  table: string,
+  rows: Array<Record<string, unknown>>,
+  chunkSize = 500
+): Promise<number> {
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize)
+    const { error } = await db.from(table).insert(chunk as never)
+    if (error) {
+      throw new Error(
+        `${table}: rows ${i}–${i + chunk.length} rejected — ${error.message}` +
+          (error.details ? `\n  ${error.details}` : '')
+      )
+    }
+  }
+  return rows.length
+}
+
 // ---------------------------------------------------------------------------
 // Auth users
 // ---------------------------------------------------------------------------
@@ -365,15 +391,20 @@ async function main() {
       let spent = 0
 
       for (let line = 0; line < randInt(2, 5) && spent < target; line++) {
-        const useBottle = chance(0.62)
-        if (useBottle) {
+        // sales_dedupe_idx is unique on (member, check, item_name, timestamp).
+        // Every line on a check shares the first two, so stagger the timestamp
+        // by a minute per line — otherwise ordering the same bottle twice on
+        // one check violates the index and takes the whole batch down with it.
+        const lineAt = new Date(at.getTime() + line * 60_000)
+
+        if (chance(0.62)) {
           const item = pick(items)
           const price = item.price_cents ?? randInt(900, 2400)
           sales.push({
             member_id: memberId,
             import_id: importRow?.id ?? null,
             toast_check_id: checkId,
-            transacted_at: iso(at),
+            transacted_at: iso(lineAt),
             item_name: item.name,
             item_category: item.category,
             item_id: item.id,
@@ -388,7 +419,7 @@ async function main() {
             member_id: memberId,
             import_id: importRow?.id ?? null,
             toast_check_id: checkId,
-            transacted_at: iso(at),
+            transacted_at: iso(lineAt),
             item_name: pick(COCKTAILS),
             item_category: 'Cocktails',
             item_id: null,
@@ -402,12 +433,8 @@ async function main() {
     }
   }
 
-  for (let i = 0; i < visits.length; i += 500) {
-    await db.from('visits').insert(visits.slice(i, i + 500) as never)
-  }
-  for (let i = 0; i < sales.length; i += 500) {
-    await db.from('sales_transactions').insert(sales.slice(i, i + 500) as never)
-  }
+  await insertAll('visits', visits)
+  await insertAll('sales_transactions', sales)
   await db
     .from('sales_imports')
     .update({ row_count: sales.length, matched_count: sales.length } as never)
@@ -477,12 +504,8 @@ async function main() {
     }
   }
 
-  for (let i = 0; i < favorites.length; i += 500) {
-    await db.from('favorites').insert(favorites.slice(i, i + 500) as never)
-  }
-  for (let i = 0; i < notes.length; i += 500) {
-    await db.from('tasting_notes').insert(notes.slice(i, i + 500) as never)
-  }
+  await insertAll('favorites', favorites)
+  await insertAll('tasting_notes', notes)
   const { data: createdLists } = await db
     .from('member_lists')
     .insert(listRows as never)
@@ -494,9 +517,7 @@ async function main() {
       listItems.push({ list_id: list.id, item_id: item.id, sort_order: order })
     })
   }
-  for (let i = 0; i < listItems.length; i += 500) {
-    await db.from('member_list_items').insert(listItems.slice(i, i + 500) as never)
-  }
+  await insertAll('member_list_items', listItems)
   log('tastes', `${favorites.length} favorites, ${notes.length} notes, ${createdLists?.length ?? 0} lists`)
 
   // Members sharing lists with each other.
@@ -519,7 +540,7 @@ async function main() {
       })
     }
   }
-  await db.from('shares').insert(shares as never)
+  await insertAll('shares', shares)
   log('shares', `${shares.length}`)
 
   // --- Events --------------------------------------------------------------
@@ -580,9 +601,7 @@ async function main() {
     }
   }
   await db.from('events').select('id').limit(1) // keep the client warm
-  for (let i = 0; i < reservations.length; i += 500) {
-    await db.from('event_reservations').insert(reservations.slice(i, i + 500) as never)
-  }
+  await insertAll('event_reservations', reservations)
   log('reservations', `${reservations.length}`)
 
   // --- Lockers -------------------------------------------------------------
@@ -631,7 +650,7 @@ async function main() {
       })
     }
   }
-  await db.from('locker_items').insert(lockerItems as never)
+  await insertAll('locker_items', lockerItems)
   log('lockers', `${createdLockers?.length ?? 0} lockers, ${lockerItems.length} bottles`)
 
   // --- Threads, requests, fittings, flags, chits ---------------------------
@@ -745,7 +764,7 @@ async function seedConversations(a: ConvoArgs) {
     const threadId = threadIdByKey.get(`${memberId}:${subject}`)
     return threadId ? p.messages.map((m) => ({ ...m, thread_id: threadId })) : []
   })
-  await db.from('messages').insert(messageRows as never)
+  await insertAll('messages', messageRows)
 
   // --- Locker product requests --------------------------------------------
   const requestSpecs: Array<{
@@ -805,7 +824,7 @@ async function seedConversations(a: ConvoArgs) {
     fulfilled_at: ['added', 'received'].includes(r.status) ? iso(offsetDays(-randInt(1, 20))) : null,
     cancelled_at: r.status === 'cancelled' ? iso(offsetDays(-randInt(1, 30))) : null,
   }))
-  await db.from('product_requests').insert(productRequests as never)
+  await insertAll('product_requests', productRequests)
 
   // --- Fittings ------------------------------------------------------------
   const fittingSpecs = [
@@ -875,7 +894,7 @@ async function seedConversations(a: ConvoArgs) {
     feedback_body: f.feedback ?? null,
     feedback_at: f.rating ? iso(offsetDays(-randInt(1, 40))) : null,
   }))
-  await db.from('fittings').insert(fittings as never)
+  await insertAll('fittings', fittings)
 
   // --- Private date requests ----------------------------------------------
   const eventRequests = [
@@ -911,7 +930,7 @@ async function seedConversations(a: ConvoArgs) {
     status: r.status,
     created_at: iso(offsetDays(-randInt(2, 30))),
   }))
-  await db.from('event_requests').insert(eventRequests as never)
+  await insertAll('event_requests', eventRequests)
 
   // --- Flags and chits -----------------------------------------------------
   const flags = [
@@ -938,7 +957,7 @@ async function seedConversations(a: ConvoArgs) {
     created_by: pick(a.managerIds),
     created_at: iso(offsetDays(-randInt(2, 60))),
   }))
-  await db.from('member_flags').insert(flags as never)
+  await insertAll('member_flags', flags)
 
   const chits: Array<Record<string, unknown>> = []
   for (const [i, memberId] of a.memberIds.entries()) {
@@ -977,7 +996,7 @@ async function seedConversations(a: ConvoArgs) {
       })
     }
   }
-  await db.from('member_chits').insert(chits as never)
+  await insertAll('member_chits', chits)
 
   // --- Notifications for the next event ------------------------------------
   const upcoming = a.events
@@ -999,7 +1018,7 @@ async function seedConversations(a: ConvoArgs) {
       read_at: chance(0.4) ? iso(offsetDays(-0.5)) : null,
       created_at: iso(offsetDays(-1)),
     }))
-    await db.from('notifications').insert(notifications as never)
+    await insertAll('notifications', notifications)
   }
 
   // --- Activity stream -----------------------------------------------------
@@ -1017,9 +1036,7 @@ async function seedConversations(a: ConvoArgs) {
       })
     }
   }
-  for (let i = 0; i < activity.length; i += 1000) {
-    await db.from('member_activity').insert(activity.slice(i, i + 1000) as never)
-  }
+  await insertAll('member_activity', activity, 1000)
 
   log('conversations', `${threads.length} threads, ${productRequests.length} requests, ${fittings.length} fittings`)
   log('staff notes', `${flags.length} flags, ${chits.length} chits`)

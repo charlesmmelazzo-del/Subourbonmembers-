@@ -143,3 +143,35 @@ editor with its sources; nothing publishes until a manager saves it.
   card capture. They're settled on the night.
 - **Event image uploads.** Events pick from the four venue photos; there's no
   uploader yet.
+
+---
+
+## Test logins
+
+Three accounts, one per role, created by the seed like any other member:
+
+| Email | Role | What it exercises |
+|---|---|---|
+| `admin@subourbon.bar` | Admin | Admin panel, concierge view, and the member portal |
+| `senior@subourbon.bar` | Senior member | Locker, co-members, private event requests |
+| `junior@subourbon.bar` | Junior member | The junior tier — no locker, no private bookings |
+
+Set their password (and see what data each one holds):
+
+```bash
+npm run logins                    # default password
+npm run logins -- 'MyPassword1!'  # your own
+```
+
+Re-run it after any re-seed.
+
+## Checking your setup
+
+```bash
+npm run check       # env, connection, migrations, whether RLS is protecting data
+npm run check:auth  # signs in as a member and proves they cannot read anyone else's data
+```
+
+`check:auth` is the one that matters — it attempts to read another member's
+profile, notes, spend, and the staff-only chits, and to self-promote to admin.
+All five must fail.

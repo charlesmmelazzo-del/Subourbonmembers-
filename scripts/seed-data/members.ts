@@ -339,6 +339,35 @@ export const MEMBERS: SeedMember[] = [
     preferences: 'Came for a concert, stayed for the whiskey. Still finding his footing.',
     spend_band: 'low', visit_rate: 1.4,
   },
+
+  // --- Test logins ---------------------------------------------------------
+  // Deliberately last: the seed references earlier members by array index for
+  // flags, fittings, requests and private bookings, so appending keeps those
+  // pointing at the right people. Memorable addresses so you can sign in as
+  // each tier without digging through the demo membership.
+  {
+    first_name: 'Eleanor', last_name: 'Vance',
+    email: 'senior@subourbon.bar', phone: '(630) 555-0111',
+    address_line1: '400 W Front St', city: 'Wheaton', state: 'IL', postal_code: '60187',
+    tier: 'senior', member_since: '2023-01-15', birthday: '1979-05-20', vip: true,
+    preferences:
+      'Test account for the senior tier. Deep in agave and Jamaican rum, drinks everything neat, and books the space a couple of times a year.',
+    spend_band: 'whale', visit_rate: 5.5, locker: 'A-00',
+    co_members: [
+      { name: 'Harriet Vance', email: 'comember1@subourbon.bar', accepted: true },
+      { name: 'Julian Vance', email: 'comember2@subourbon.bar', accepted: true },
+      { name: 'Priya Anand', email: 'comember3@subourbon.bar', accepted: false },
+    ],
+  },
+  {
+    first_name: 'Miles', last_name: 'Rutherford',
+    email: 'junior@subourbon.bar', phone: '(630) 555-0122',
+    address_line1: '218 N Hale St', city: 'Wheaton', state: 'IL', postal_code: '60187',
+    tier: 'junior', member_since: '2024-08-01', birthday: '1994-03-11',
+    preferences:
+      'Test account for the junior tier. No locker and no private bookings — that is the tier, not a bug.',
+    spend_band: 'mid', visit_rate: 3.2,
+  },
 ]
 
 export const STAFF: Array<{
@@ -351,6 +380,11 @@ export const STAFF: Array<{
   {
     first_name: 'Mike', last_name: 'Melazzo',
     email: 'mike@cgcocktails.com', role: 'admin', phone: '(630) 555-0100',
+  },
+  {
+    // Test login for the admin tier.
+    first_name: 'Subourbon', last_name: 'Admin',
+    email: 'admin@subourbon.bar', role: 'admin', phone: '(630) 555-0110',
   },
   {
     first_name: 'Nadia', last_name: 'Krolikowski',
