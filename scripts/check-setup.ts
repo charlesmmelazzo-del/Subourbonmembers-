@@ -3,13 +3,16 @@
  *
  *   npm run check
  *
- * Checks the three environment variables, the connection, that both migrations
- * ran, and that row-level security is actually switched on. Prints exactly
- * which step to go back to when something is missing.
+ * Checks the three environment variables, the connection, that the migrations
+ * ran, that row-level security is actually switched on, and that the demo data
+ * — including cocktails, staff picks and the two recommendation functions —
+ * is really there. Prints exactly which step to go back to when something is
+ * missing.
  */
 
 import { config } from 'dotenv'
 import { createClient } from '@supabase/supabase-js'
+import { mondayOf } from '../lib/format'
 
 config({ path: '.env.local' })
 config({ path: '.env' })
@@ -33,16 +36,28 @@ function warn(label: string, detail: string) {
   console.log(`      ${detail}`)
 }
 
-// Tables 0001_init.sql creates. If any are missing, the migration didn't finish.
-const EXPECTED_TABLES = [
-  'profiles', 'co_members', 'member_activity', 'visits', 'sales_imports',
-  'sales_transactions', 'member_flags', 'member_chits', 'producers',
-  'catalog_items', 'catalog_media', 'favorites', 'member_lists',
-  'member_list_items', 'tasting_notes', 'shares', 'events', 'event_media',
-  'event_reservations', 'event_requests', 'message_threads', 'messages',
-  'lockers', 'locker_items', 'product_requests', 'fittings', 'fitting_items',
-  'notifications', 'app_settings', 'item_recommendations', 'staff_picks',
+// Every table, kept next to the migration that creates it, so a missing one
+// names the file to go back and run rather than a generic "re-run 0001".
+const TABLES_BY_MIGRATION: Array<[migration: string, tables: string[]]> = [
+  ['0001_init.sql', [
+    'profiles', 'co_members', 'member_activity', 'visits', 'sales_imports',
+    'sales_transactions', 'member_flags', 'member_chits', 'producers',
+    'catalog_items', 'catalog_media', 'favorites', 'member_lists',
+    'member_list_items', 'tasting_notes', 'shares', 'events', 'event_media',
+    'event_reservations', 'event_requests', 'message_threads', 'messages',
+    'lockers', 'locker_items', 'product_requests', 'fittings', 'fitting_items',
+    'notifications', 'app_settings',
+  ]],
+  ['0004_recommendations.sql', ['item_recommendations', 'staff_picks']],
 ]
+
+const EXPECTED_TABLES = TABLES_BY_MIGRATION.flatMap(([, tables]) => tables)
+
+const MIGRATION_FOR = new Map(
+  TABLES_BY_MIGRATION.flatMap(([migration, tables]) =>
+    tables.map((t) => [t, migration] as const)
+  )
+)
 
 async function main() {
   console.log('\nChecking your Supabase setup\n')
@@ -114,19 +129,31 @@ async function main() {
   ok('Connected and authenticated')
 
   // --- Step 3: schema -----------------------------------------------------
-  console.log('\nSchema — migration 0001_init.sql')
+  console.log('\nSchema')
   const missing: string[] = []
   for (const table of EXPECTED_TABLES) {
-    const { error } = await db.from(table).select('*', { head: true, count: 'exact' }).limit(0)
+    // Deliberately not a `head: true` count. PostgREST answers a HEAD against
+    // a table it has never heard of with a bodyless 200, so supabase-js hands
+    // back `error: null` and every missing table looks present — which made
+    // this check pass on a half-run migration, the one thing it exists to
+    // catch. Asking for a row surfaces the real error.
+    const { error } = await db.from(table).select('*').limit(1)
     if (error && /does not exist|Could not find the table/i.test(error.message)) {
       missing.push(table)
     }
   }
 
   if (missing.length > 0) {
+    const byMigration = new Map<string, string[]>()
+    for (const table of missing) {
+      const file = MIGRATION_FOR.get(table) ?? '0001_init.sql'
+      byMigration.set(file, [...(byMigration.get(file) ?? []), table])
+    }
     bad(
       `${missing.length} of ${EXPECTED_TABLES.length} tables are missing`,
-      `Re-run 0001_init.sql. Missing: ${missing.slice(0, 6).join(', ')}${missing.length > 6 ? '…' : ''}`
+      [...byMigration]
+        .map(([file, tables]) => `Run ${file} — missing ${tables.join(', ')}`)
+        .join('\n      → ')
     )
   } else {
     ok(`All ${EXPECTED_TABLES.length} tables present`)
@@ -179,6 +206,84 @@ async function main() {
       'Cannot confirm row-level security yet — there is no data to protect',
       'Run `npm run seed`, then run this again for a real answer.'
     )
+  }
+
+  // --- Step 6: recommendations -------------------------------------------
+  // 0003 and 0004 are easy to skip, and the symptom is quiet: the menu still
+  // works, the two boards just say they could not load. Check them by name.
+  console.log('\nRecommendations — migrations 0003 & 0004')
+
+  const [{ count: cocktails }, { count: pairings }, { data: picks }] = await Promise.all([
+    db.from('catalog_items').select('id', { count: 'exact', head: true }).eq('kind', 'cocktail'),
+    db.from('item_recommendations').select('item_id', { count: 'exact', head: true }),
+    db.from('staff_picks').select('week_of'),
+  ])
+
+  if ((bottles ?? 0) === 0) {
+    warn('Nothing in the catalog to check', 'Run `npm run seed` first.')
+  } else if ((cocktails ?? 0) === 0) {
+    warn(
+      'No cocktails in the catalog',
+      'Run 0003_cocktails.sql, let it commit, then re-run `npm run seed`.'
+    )
+  } else {
+    ok('Cocktails', `${cocktails} on the menu`)
+  }
+
+  const thisWeek = mondayOf()
+  const picksThisWeek = (picks ?? []).filter((p) => p.week_of === thisWeek).length
+  if (picks === null) {
+    bad('staff_picks is not readable', 'Run supabase/migrations/0004_recommendations.sql.')
+  } else if (picksThisWeek === 0) {
+    warn(
+      `No staff picks for the week of ${thisWeek}`,
+      (picks.length > 0
+        ? `${picks.length} pick(s) exist for other weeks. `
+        : '') + 'Set this week\'s board in the admin panel, or re-run `npm run seed`.'
+    )
+  } else {
+    ok('Staff picks', `${picksThisWeek} for the week of ${thisWeek}`)
+  }
+
+  if ((pairings ?? 0) === 0) {
+    warn('No curated pairings', 'Optional — members still get co-favorited suggestions.')
+  } else {
+    ok('Curated pairings', `${pairings}`)
+  }
+
+  // The two functions are the part most likely to be missing, and the only
+  // part that cannot be spotted by looking at a table. Call them.
+  //
+  // dealers_choice() reads auth.uid(), which is null under the service key, so
+  // this exercises its "what the room favors" fallback rather than a real
+  // member's matches. That is enough to prove it exists and runs.
+  const { error: dcError } = await db.rpc('dealers_choice', { per_kind: 3 })
+  if (dcError) {
+    bad(
+      `dealers_choice() failed: ${dcError.message}`,
+      'Run supabase/migrations/0004_recommendations.sql.'
+    )
+  } else {
+    ok('dealers_choice() runs')
+  }
+
+  const { data: sample } = await db
+    .from('catalog_items')
+    .select('id')
+    .eq('status', 'active')
+    .limit(1)
+    .maybeSingle()
+
+  if (sample) {
+    const { error: rwError } = await db.rpc('recommended_with', { target: sample.id, want: 5 })
+    if (rwError) {
+      bad(
+        `recommended_with() failed: ${rwError.message}`,
+        'Run supabase/migrations/0004_recommendations.sql.'
+      )
+    } else {
+      ok('recommended_with() runs')
+    }
   }
 
   // --- Summary ------------------------------------------------------------
