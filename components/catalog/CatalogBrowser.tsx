@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Heart, Search, Sparkles, Star, StickyNote, X } from 'lucide-react'
 import clsx from 'clsx'
-import { taxonFor } from '@/lib/catalog'
+import { groupForKind, taxonFor } from '@/lib/catalog'
 import { CategoryPanel } from './CategoryPanel'
 import { DealersChoicePanel } from './DealersChoicePanel'
 import { ItemCard } from './ItemCard'
@@ -131,8 +131,8 @@ export function CatalogBrowser({
     [openIndex, context]
   )
 
-  const categoryCount = useMemo(
-    () => new Set(items.map((i) => i.category)).size,
+  const sectionCount = useMemo(
+    () => new Set(items.map((i) => groupForKind(i.kind)?.key ?? i.kind)).size,
     [items]
   )
   const selectedTaxon = selection ? taxonFor(selection.category) : undefined
@@ -148,8 +148,8 @@ export function CatalogBrowser({
           </h1>
           {!eightysixed && (
             <p className="mt-1.5 text-sm text-cream-muted">
-              {items.length} {items.length === 1 ? 'pour' : 'pours'} across {categoryCount}{' '}
-              {categoryCount === 1 ? 'category' : 'categories'}. Open one to look inside.
+              {items.length} {items.length === 1 ? 'pour' : 'pours'} across {sectionCount}{' '}
+              {sectionCount === 1 ? 'list' : 'lists'}. Open a category to look inside.
             </p>
           )}
         </div>

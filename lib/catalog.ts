@@ -33,20 +33,7 @@ export const TAXONOMY: Taxon[] = [
     subcategories: ['House Originals', 'Stirred', 'Shaken', 'Highballs & Spritz', 'Zero Proof'],
     blurb: 'Made to order, and made the same way every time.',
   },
-  {
-    category: 'Rum',
-    kind: 'spirit',
-    subcategories: [
-      'Jamaican',
-      'Martinique',
-      'Barbados',
-      'Rum Other',
-      'Cachaça',
-      'Clairin',
-      'Sugar Distillate Other',
-    ],
-    blurb: 'Cane, in every dialect it has ever been spoken.',
-  },
+  // Whiskey opens the spirits list. Order here is the order on the menu.
   {
     category: 'Whiskey',
     kind: 'spirit',
@@ -60,6 +47,20 @@ export const TAXONOMY: Taxon[] = [
       'International Whiskey Other',
     ],
     blurb: 'Grain, wood, and patience.',
+  },
+  {
+    category: 'Rum',
+    kind: 'spirit',
+    subcategories: [
+      'Jamaican',
+      'Martinique',
+      'Barbados',
+      'Rum Other',
+      'Cachaça',
+      'Clairin',
+      'Sugar Distillate Other',
+    ],
+    blurb: 'Cane, in every dialect it has ever been spoken.',
   },
   { category: 'Gin', kind: 'spirit', blurb: 'Juniper, and the argument around it.' },
   { category: 'Shochu', kind: 'spirit', blurb: 'Koji, and a lighter hand.' },
@@ -88,6 +89,47 @@ export const TAXONOMY: Taxon[] = [
 ]
 
 export const CATEGORIES = TAXONOMY.map((t) => t.category)
+
+// ---------------------------------------------------------------------------
+// Menu sections
+// ---------------------------------------------------------------------------
+
+/**
+ * The three headings the menu is laid out under. Membership is decided by
+ * `kind`, not by a list of category names, so a category added later lands in
+ * the right section on its own.
+ */
+export type MenuGroup = {
+  key: string
+  title: string
+  kinds: CatalogKind[]
+  blurb?: string
+}
+
+export const MENU_GROUPS: MenuGroup[] = [
+  {
+    key: 'cocktails',
+    title: 'Cocktails',
+    kinds: ['cocktail'],
+    blurb: 'Made to order, and made the same way every time.',
+  },
+  {
+    key: 'spirits',
+    title: 'Spirits List',
+    kinds: ['spirit'],
+    blurb: 'The backbar, by category.',
+  },
+  {
+    key: 'beer-wine',
+    title: 'Beer and Wine List',
+    kinds: ['beer', 'wine'],
+    blurb: 'Bottles, cans, and what is open tonight.',
+  },
+]
+
+export function groupForKind(kind: CatalogKind): MenuGroup | undefined {
+  return MENU_GROUPS.find((g) => g.kinds.includes(kind))
+}
 
 export function taxonFor(category: string): Taxon | undefined {
   return TAXONOMY.find((t) => t.category === category)
