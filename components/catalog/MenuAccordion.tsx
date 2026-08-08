@@ -4,10 +4,12 @@ import { useMemo } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronRight } from 'lucide-react'
 import clsx from 'clsx'
-import { MENU_GROUPS, TAXONOMY, groupForKind, type MenuGroup, type Taxon } from '@/lib/catalog'
+import { sectionForKind, type MenuTree, type MenuTreeSection } from '@/lib/menu'
 import { DiamondRule } from '@/components/ui/Logo'
 import { iconForKind } from './kindIcon'
-import type { CatalogItemFull } from '@/lib/types'
+import type { CatalogItemFull, CatalogKind } from '@/lib/types'
+
+type Taxon = { category: string; kind: CatalogKind; blurb?: string }
 
 export type MenuSection = {
   taxon: Taxon
@@ -22,13 +24,15 @@ export type MenuSection = {
 }
 
 type Group = {
-  group: MenuGroup
+  group: MenuTreeSection
   sections: MenuSection[]
   total: number
 }
 
 type Props = {
   items: CatalogItemFull[]
+  /** The menu's shape, from `menu_nodes` or the compiled-in fallback. */
+  menu: MenuTree
   /** Category whose subcategories are showing, if any. */
   expanded: string | null
   onToggle: (category: string) => void
@@ -45,8 +49,8 @@ type Props = {
  * The headings do not collapse on purpose: they are the shape of the menu, and
  * hiding them would put a third click between a member and a drink.
  */
-export function MenuAccordion({ items, expanded, onToggle, onSelect }: Props) {
-  const groups = useMemo(() => buildGroups(items), [items])
+export function MenuAccordion({ items, menu, expanded, onToggle, onSelect }: Props) {
+  const groups = useMemo(() => buildGroups(items, menu), [items, menu])
 
   return (
     <div className="space-y-9">
@@ -226,11 +230,28 @@ function CategoryRow({
  * up a level, so the section reads "Cocktails / Stirred" rather than
  * "Cocktails / Cocktails / Stirred".
  */
-function buildGroups(items: CatalogItemFull[]): Group[] {
-  const sections = buildSections(items)
+function buildGroups(items: CatalogItemFull[], menu: MenuTree): Group[] {
+  const sections = buildSections(items, menu)
+  const placed = new Set<string>()
 
-  return MENU_GROUPS.flatMap((group) => {
-    const mine = sections.filter((s) => group.kinds.includes(s.taxon.kind))
+  return menu.flatMap((group) => {
+    // Categories the tree lists, in the order it lists them; then anything of
+    // a kind this section claims that the tree has never heard of.
+    const named = group.categories.flatMap((c) => {
+      const found = sections.find((s) => s.taxon.category === c.name)
+      if (!found) return []
+      placed.add(c.name)
+      return [found]
+    })
+    const strays = sections.filter(
+      (s) =>
+        !placed.has(s.taxon.category) &&
+        !menu.some((g) => g.categories.some((c) => c.name === s.taxon.category)) &&
+        sectionForKind(menu, s.taxon.kind)?.key === group.key
+    )
+    for (const s of strays) placed.add(s.taxon.category)
+
+    const mine = [...named, ...strays]
     if (mine.length === 0) return []
 
     const total = mine.reduce((n, s) => n + s.items.length, 0)
@@ -278,7 +299,7 @@ function promote(section: MenuSection): MenuSection[] {
  * taxonomy has not heard of gets a row of its own so imported categories can
  * never go missing from the menu.
  */
-function buildSections(items: CatalogItemFull[]): MenuSection[] {
+function buildSections(items: CatalogItemFull[], menu: MenuTree): MenuSection[] {
   const byCategory = new Map<string, CatalogItemFull[]>()
   for (const item of items) {
     const rows = byCategory.get(item.category)
@@ -287,32 +308,40 @@ function buildSections(items: CatalogItemFull[]): MenuSection[] {
   }
 
   const sections: MenuSection[] = []
-  for (const taxon of TAXONOMY) {
-    const rows = byCategory.get(taxon.category)
-    if (!rows?.length) continue
-    byCategory.delete(taxon.category)
-    sections.push({
-      taxon,
-      items: rows,
-      subs: subsFor(taxon, rows),
-      select: { category: taxon.category, subcategory: null },
-    })
+  for (const section of menu) {
+    for (const category of section.categories) {
+      const rows = byCategory.get(category.name)
+      if (!rows?.length) continue
+      byCategory.delete(category.name)
+      const taxon: Taxon = {
+        category: category.name,
+        kind: category.kind,
+        blurb: category.blurb,
+      }
+      sections.push({
+        taxon,
+        items: rows,
+        subs: subsFor(category.subcategories, rows),
+        select: { category: category.name, subcategory: null },
+      })
+    }
   }
   for (const [category, rows] of byCategory) {
-    // An unknown category still has a kind, which is all a heading needs — but
-    // a kind no heading claims would drop the category off the menu entirely.
+    // A category the tree does not list still has a kind, which is all a
+    // heading needs — but a kind no heading claims would drop it off the menu
+    // entirely, so it falls back to the first section.
     const kind = rows[0].kind
     sections.push({
-      taxon: { category, kind: groupForKind(kind) ? kind : 'spirit' },
+      taxon: { category, kind: sectionForKind(menu, kind) ? kind : (menu[0]?.kinds[0] ?? 'spirit') },
       items: rows,
-      subs: subsFor(undefined, rows),
+      subs: subsFor([], rows),
       select: { category, subcategory: null },
     })
   }
   return sections
 }
 
-function subsFor(taxon: Taxon | undefined, rows: CatalogItemFull[]) {
+function subsFor(declared: string[], rows: CatalogItemFull[]) {
   const counts = new Map<string, number>()
   for (const row of rows) {
     if (!row.subcategory) continue
@@ -320,7 +349,7 @@ function subsFor(taxon: Taxon | undefined, rows: CatalogItemFull[]) {
   }
 
   const out: Array<{ name: string; count: number }> = []
-  for (const name of taxon?.subcategories ?? []) {
+  for (const name of declared) {
     const count = counts.get(name)
     if (count) {
       out.push({ name, count })

@@ -4,19 +4,22 @@ import { useMemo, useState } from 'react'
 import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
 import { createClient } from '@/lib/supabase/client'
-import { CATEGORIES, TAXONOMY, humanize, kindFor, specSheet } from '@/lib/catalog'
+import { humanize, specSheet } from '@/lib/catalog'
+import { categoryIn, categoryNames, type MenuTree } from '@/lib/menu'
 import { ItemRecommendations } from './ItemRecommendations'
 import type { CatalogItem, Producer } from '@/lib/types'
 
 type Draft = Partial<CatalogItem> & { __sources?: string[] }
 
 export function CatalogItemForm({
-  item, producers, catalog, onClose, onSaved,
+  item, producers, catalog, menu, onClose, onSaved,
 }: {
   item: Draft
   producers: Producer[]
   /** Every bottle, so pairings can point at one. */
   catalog: CatalogItem[]
+  /** The live menu shape — categories a manager added show up here too. */
+  menu: MenuTree
   onClose: () => void
   onSaved: () => void
 }) {
@@ -37,7 +40,9 @@ export function CatalogItemForm({
     () => specSheet(form.category ?? 'Rum', form.subcategory),
     [form.category, form.subcategory]
   )
-  const taxon = TAXONOMY.find((t) => t.category === form.category)
+  const taxon = form.category ? categoryIn(menu, form.category) : undefined
+  const categories = categoryNames(menu)
+  const kindOf = (name: string) => categoryIn(menu, name)?.kind ?? 'spirit'
 
   const specs = (form.specs ?? {}) as Record<string, string>
   const extras = Object.keys(specs).filter(
@@ -89,7 +94,7 @@ export function CatalogItemForm({
     }
 
     const payload = {
-      kind: form.kind ?? kindFor(form.category),
+      kind: form.kind ?? kindOf(form.category),
       category: form.category,
       subcategory: form.subcategory || null,
       name: form.name.trim(),
@@ -151,12 +156,12 @@ export function CatalogItemForm({
               onChange={(e) => {
                 set('category', e.target.value)
                 set('subcategory', null)
-                set('kind', kindFor(e.target.value))
+                set('kind', kindOf(e.target.value))
               }}
               className="input"
             >
               <option value="">Choose one</option>
-              {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+              {categories.map((c) => <option key={c}>{c}</option>)}
             </select>
           </div>
           <div>

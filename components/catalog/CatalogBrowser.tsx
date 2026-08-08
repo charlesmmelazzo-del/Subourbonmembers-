@@ -3,19 +3,22 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Heart, Search, Sparkles, Star, StickyNote, X } from 'lucide-react'
+import { Dices, Heart, Search, Sparkles, Star, StickyNote, X } from 'lucide-react'
 import clsx from 'clsx'
-import { groupForKind, taxonFor } from '@/lib/catalog'
+import { categoryIn, sectionForKind, type MenuTree } from '@/lib/menu'
 import { CategoryPanel } from './CategoryPanel'
 import { DealersChoicePanel } from './DealersChoicePanel'
 import { ItemCard } from './ItemCard'
 import { ItemSheet } from './ItemSheet'
+import { LuckyPanel } from './LuckyPanel'
 import { MenuAccordion } from './MenuAccordion'
 import { StaffPicksPanel } from './StaffPicksPanel'
 import type { CatalogItemFull } from '@/lib/types'
 
 type Props = {
   items: CatalogItemFull[]
+  /** The menu's shape, from `menu_nodes` or the compiled-in fallback. */
+  menu: MenuTree
   memberId: string
   favoriteIds: string[]
   ratedIds: Record<string, number | null>
@@ -35,10 +38,10 @@ type Filter = 'all' | 'favorites' | 'noted' | 'ordered'
 type Selection = { category: string; subcategory: string | null }
 
 /** Only one slide-up at a time — they all occupy the same layer. */
-type Board = 'dealers' | 'staff' | null
+type Board = 'dealers' | 'staff' | 'lucky' | null
 
 export function CatalogBrowser({
-  items, memberId, favoriteIds, ratedIds, orderedIds,
+  items, menu, memberId, favoriteIds, ratedIds, orderedIds,
   initialItemId, initialCategory, initialSubcategory, initialShowAll, initialQuery,
   eightysixed,
 }: Props) {
@@ -132,10 +135,10 @@ export function CatalogBrowser({
   )
 
   const sectionCount = useMemo(
-    () => new Set(items.map((i) => groupForKind(i.kind)?.key ?? i.kind)).size,
-    [items]
+    () => new Set(items.map((i) => sectionForKind(menu, i.kind)?.key ?? i.kind)).size,
+    [items, menu]
   )
-  const selectedTaxon = selection ? taxonFor(selection.category) : undefined
+  const selectedCategory = selection ? categoryIn(menu, selection.category) : undefined
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -208,7 +211,7 @@ export function CatalogBrowser({
       </div>
 
       {/* ---- The two boards ---- */}
-      <div className="mb-5 grid gap-2 sm:grid-cols-2">
+      <div className="mb-6 grid gap-2 sm:grid-cols-3">
         <BoardButton
           icon={Sparkles}
           title="Dealer's Choice"
@@ -220,6 +223,12 @@ export function CatalogBrowser({
           title="Staff Picks"
           detail="What the bar team is pouring this week."
           onClick={() => setBoard('staff')}
+        />
+        <BoardButton
+          icon={Dices}
+          title="I'm Feeling Lucky"
+          detail="Roll for it."
+          onClick={() => setBoard('lucky')}
         />
       </div>
 
@@ -251,6 +260,7 @@ export function CatalogBrowser({
       ) : (
         <MenuAccordion
           items={items}
+          menu={menu}
           expanded={expanded}
           onToggle={(category) =>
             setExpanded((prev) => (prev === category ? null : category))
@@ -266,6 +276,18 @@ export function CatalogBrowser({
         {board === 'dealers' && (
           <DealersChoicePanel
             key="dealers"
+            items={items}
+            favorites={favorites}
+            ratedIds={ratedIds}
+            ordered={ordered}
+            onOpenItem={setOpenId}
+            onClose={() => setBoard(null)}
+            takesEscape={!openItem}
+          />
+        )}
+        {board === 'lucky' && (
+          <LuckyPanel
+            key="lucky"
             items={items}
             favorites={favorites}
             ratedIds={ratedIds}
@@ -296,7 +318,7 @@ export function CatalogBrowser({
             key={`${selection.category}:${selection.subcategory ?? '*'}`}
             title={selection.subcategory ?? selection.category}
             eyebrow={selection.subcategory ? selection.category : 'The backbar'}
-            blurb={selection.subcategory ? undefined : selectedTaxon?.blurb}
+            blurb={selection.subcategory ? undefined : selectedCategory?.blurb}
             items={panelItems}
             favorites={favorites}
             ratedIds={ratedIds}

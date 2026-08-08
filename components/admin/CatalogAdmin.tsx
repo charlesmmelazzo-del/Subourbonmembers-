@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Ban, Pencil, Plus, RotateCcw, ScanLine, Search, Star, Wine } from 'lucide-react'
 import clsx from 'clsx'
 import { createClient } from '@/lib/supabase/client'
-import { CATEGORIES } from '@/lib/catalog'
+import { categoryNames, type MenuTree } from '@/lib/menu'
 import { money } from '@/lib/format'
 import { BottleScanner } from './BottleScanner'
 import { CatalogItemForm } from './CatalogItemForm'
@@ -15,10 +15,11 @@ import type { CatalogItem, Producer } from '@/lib/types'
 type View = 'active' | 'eightysixed' | 'draft' | 'locker_only'
 
 export function CatalogAdmin({
-  items, producers,
+  items, producers, menu,
 }: {
   items: CatalogItem[]
   producers: Producer[]
+  menu: MenuTree
 }) {
   const router = useRouter()
   const [view, setView] = useState<View>('active')
@@ -126,7 +127,7 @@ export function CatalogAdmin({
           className="input w-auto"
         >
           <option value="">All categories</option>
-          {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+          {categoryNames(menu).map((c) => <option key={c}>{c}</option>)}
         </select>
       </div>
 
@@ -209,6 +210,7 @@ export function CatalogAdmin({
           item={editing}
           producers={producers}
           catalog={items}
+          menu={menu}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); router.refresh() }}
         />

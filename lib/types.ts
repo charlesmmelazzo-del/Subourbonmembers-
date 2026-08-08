@@ -188,6 +188,23 @@ export type ItemRecommendation = {
   created_at: string
 }
 
+export type MenuLevel = 'section' | 'category' | 'subcategory'
+
+/** A row of the menu tree. See supabase/migrations/0005_menu_taxonomy.sql. */
+export type MenuNode = {
+  id: string
+  parent_id: string | null
+  level: MenuLevel
+  name: string
+  blurb: string | null
+  kind: CatalogKind | null
+  kinds: CatalogKind[] | null
+  sort_order: number
+  is_hidden: boolean
+  created_at: string
+  updated_at: string
+}
+
 export type StaffPick = {
   id: string
   item_id: string
@@ -496,6 +513,11 @@ export type Database = {
         'id' | 'blurb' | 'sort_order' | 'picked_by' | 'created_at',
         [FK<'item_id', 'catalog_items'>, MemberFK<'picked_by'>]
       >
+      menu_nodes: Table<
+        MenuNode,
+        Generated | 'blurb' | 'kind' | 'kinds' | 'sort_order' | 'is_hidden',
+        [FK<'parent_id', 'menu_nodes'>]
+      >
       member_lists: Table<MemberList, Generated, [MemberFK]>
       member_list_items: Table<
         MemberListItem,
@@ -581,6 +603,9 @@ export type Database = {
         }[]
       }
       week_of: { Args: { d?: string }; Returns: string }
+      /** Renames a node and every catalog row filed under it, together. */
+      rename_menu_node: { Args: { node: string; new_name: string }; Returns: undefined }
+      menu_node_usage: { Args: { node: string }; Returns: number }
     }
     Enums: {
       app_role: AppRole

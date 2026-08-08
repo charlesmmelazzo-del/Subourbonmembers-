@@ -1,8 +1,9 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { quarterOf } from '@/lib/format'
+import { defaultMenuTree, menuTreeFromNodes, type MenuTree } from '@/lib/menu'
 import type {
-  CatalogItemFull, CatalogKind, EventRow, Profile, SalesTransaction,
+  CatalogItemFull, CatalogKind, EventRow, MenuNode, Profile, SalesTransaction,
 } from '@/lib/types'
 
 /**
@@ -55,6 +56,22 @@ export async function listCatalog(filters: CatalogFilters = {}): Promise<Catalog
 
   const { data } = await q
   return (data as unknown as CatalogItemFull[]) ?? []
+}
+
+/**
+ * The menu's shape. Falls back to the compiled-in taxonomy whenever the table
+ * is missing or empty, so a project part-way through its migrations still
+ * renders a menu instead of an empty page.
+ */
+export async function getMenuTree(includeHidden = false): Promise<MenuTree> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('menu_nodes')
+    .select('*')
+    .order('sort_order')
+
+  if (error || !data?.length) return defaultMenuTree()
+  return menuTreeFromNodes(data as MenuNode[], includeHidden)
 }
 
 /** Every date a member ordered a given bottle, newest first. */

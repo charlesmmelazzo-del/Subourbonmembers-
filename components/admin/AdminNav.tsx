@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
 import {
   CalendarDays, ConciergeBell, Flag, Gauge, MessageSquare, Package,
-  Ruler, Users, Wine, ArrowLeft, Menu, X,
+  Ruler, Users, Wine, ArrowLeft, ListTree, Menu, X,
 } from 'lucide-react'
 import { useState } from 'react'
 import { LogoMark } from '@/components/ui/Logo'
@@ -47,6 +47,7 @@ export function AdminNav({ profile, badges }: { profile: Profile; badges: Badges
       heading: 'Programme',
       items: [
         { href: '/admin/catalog', label: 'Menu', icon: Wine },
+        { href: '/admin/menu', label: 'Menu layout', icon: ListTree },
         { href: '/admin/events', label: 'Events', icon: CalendarDays, badge: badges.events },
       ],
     },

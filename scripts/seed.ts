@@ -10,7 +10,7 @@
 
 import { config } from 'dotenv'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { kindFor } from '../lib/catalog'
+import { MENU_GROUPS, TAXONOMY, kindFor } from '../lib/catalog'
 import { mondayOf } from '../lib/format'
 import { PRODUCERS } from './seed-data/producers'
 import {
@@ -176,6 +176,7 @@ const SEEDED_TABLES: Array<[table: string, notNullColumn: string]> = [
   ['member_activity', 'id'],
   ['member_chits', 'id'],
   ['member_flags', 'id'],
+  ['menu_nodes', 'id'],
   ['staff_picks', 'id'],
   ['item_recommendations', 'item_id'],
   ['catalog_media', 'id'],
@@ -373,6 +374,48 @@ async function main() {
         : []),
     ]) as never
   )
+
+  // --- Menu layout ---------------------------------------------------------
+  // The shape in lib/catalog.ts, written into menu_nodes so managers can
+  // reorder and rename it without a deploy. The app falls back to the compiled
+  // shape when this table is empty, so seeding it changes nothing on its own.
+  let menuNodes = 0
+  for (const [s, group] of MENU_GROUPS.entries()) {
+    const { data: section, error: sectionErr } = await db
+      .from('menu_nodes')
+      .insert({
+        parent_id: null, level: 'section', name: group.title,
+        blurb: group.blurb ?? null, kinds: group.kinds, sort_order: s,
+      } as never)
+      .select('id')
+      .single()
+    if (sectionErr) throw sectionErr
+    menuNodes += 1
+
+    const categories = TAXONOMY.filter((t) => group.kinds.includes(t.kind))
+    for (const [c, taxon] of categories.entries()) {
+      const { data: category, error: catErr } = await db
+        .from('menu_nodes')
+        .insert({
+          parent_id: section!.id, level: 'category', name: taxon.category,
+          blurb: taxon.blurb ?? null, kind: taxon.kind, sort_order: c,
+        } as never)
+        .select('id')
+        .single()
+      if (catErr) throw catErr
+      menuNodes += 1
+
+      if (!taxon.subcategories?.length) continue
+      await insertAll(
+        'menu_nodes',
+        taxon.subcategories.map((name, i) => ({
+          parent_id: category!.id, level: 'subcategory', name, sort_order: i,
+        }))
+      )
+      menuNodes += taxon.subcategories.length
+    }
+  }
+  log('menu layout', `${menuNodes} nodes`)
 
   // --- Staff picks & curated pairings --------------------------------------
   // Placeholder content so both boards have something in them on day one.
