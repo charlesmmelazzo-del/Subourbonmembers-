@@ -46,7 +46,7 @@ export function AdminNav({ profile, badges }: { profile: Profile; badges: Badges
     {
       heading: 'Programme',
       items: [
-        { href: '/admin/catalog', label: 'The list', icon: Wine },
+        { href: '/admin/catalog', label: 'Menu', icon: Wine },
         { href: '/admin/events', label: 'Events', icon: CalendarDays, badge: badges.events },
       ],
     },

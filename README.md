@@ -14,12 +14,23 @@ touches subourbon.bar — add a "Members" link there when you're ready.
 ## What's in it
 
 **For members**
-- **The List** — the whole backbar, searchable by name, producer, region, or a
-  word in the description. Every bottle opens a sheet with the full technical
-  spec sheet for its category (mash bill and entry proof for a bourbon, agave
-  species and cooking method for a mezcal, marque and ester count for a Jamaican
-  rum), the producer's story, embedded photos and video, and every date that
-  member has ordered it.
+- **Menu** — the whole backbar, laid out as collapsible categories. Open a
+  category to reveal its subcategories, pick one and a panel slides up with
+  everything inside it as tiles. Every bottle opens a sheet with the full
+  technical spec sheet for its category (mash bill and entry proof for a
+  bourbon, agave species and cooking method for a mezcal, marque and ester count
+  for a Jamaican rum), the producer's story, embedded photos and video, and
+  every date that member has ordered it. Search or a personal filter swaps the
+  categories out for a flat grid of matches. Cocktails sit at the top of the
+  menu alongside the bottles.
+- **Dealer's Choice** — one to three suggestions per kind (cocktail, spirit,
+  beer, wine), as horizontally scrolling rails. Built from the member's own
+  favorites: bottles in the same category that were favorited by members who
+  share one of their favorites, ranked so anything they have never favorited,
+  noted, or ordered comes first. Each item also carries an "if you like this"
+  rail — staff pairings first, then what gets favorited alongside it.
+- **Staff Picks** — the week's board, rotated by a manager. `week_of` is always
+  a Monday, so setting next week's picks leaves this week's alone.
 - **My Collection** — favorites, custom lists, tasting notes, order history, and
   anything other members have shared. All of it searchable, including the words
   inside your own notes.
@@ -43,15 +54,21 @@ touches subourbon.bar — add a "Members" link there when you're ready.
 
 ### 1. Supabase
 
-Create a project, then run the two migrations in order from the SQL editor:
+Create a project, then run the migrations in order from the SQL editor:
 
 ```
 supabase/migrations/0001_init.sql
 supabase/migrations/0002_rls.sql
+supabase/migrations/0003_cocktails.sql
+supabase/migrations/0004_recommendations.sql
 ```
 
 The first builds the schema; the second locks it down. **Run both** — without
-`0002` every member can read every other member's data.
+`0002` every member can read every other member's data. `0003` adds cocktails
+as a catalog kind, and `0004` adds the recommendation tables plus the two
+functions behind Dealer's Choice. Run `0003` as its own statement and let it
+commit before seeding — Postgres will not accept a new enum value and a row
+using it inside the same transaction.
 
 Copy `.env.example` to `.env.local` and fill in the three Supabase values from
 Project Settings → API.

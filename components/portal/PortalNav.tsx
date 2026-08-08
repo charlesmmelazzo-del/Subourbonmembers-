@@ -32,7 +32,7 @@ export function PortalNav({
 
   const items: Item[] = [
     { href: '/', label: 'Tonight', icon: Home, primary: true },
-    { href: '/spirits', label: 'The List', icon: Wine, primary: true },
+    { href: '/spirits', label: 'Menu', icon: Wine, primary: true },
     { href: '/events', label: 'Calendar', icon: CalendarDays, primary: true },
     { href: '/locker', label: 'My Locker', icon: Lock, primary: true },
     { href: '/collection', label: 'My Collection', icon: Heart, badge: unreadShares },

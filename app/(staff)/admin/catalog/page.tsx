@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { CatalogAdmin } from '@/components/admin/CatalogAdmin'
 import type { CatalogItem, Producer } from '@/lib/types'
 
-export const metadata = { title: 'The List' }
+export const metadata = { title: 'Menu' }
 
 export default async function CatalogAdminPage() {
   await requireStaff()

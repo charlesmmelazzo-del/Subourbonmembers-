@@ -15,6 +15,7 @@ export type SeedItem = {
   tasting_notes?: string
   status?: CatalogStatus
   price_cents?: number
+  hero_image_url?: string
   specs: Record<string, Json>
   media?: Array<{ kind: 'image' | 'youtube'; url: string; caption?: string }>
 }
@@ -1847,6 +1848,198 @@ export const CATALOG: SeedItem[] = [
       barrel_types: 'Ex-bourbon American oak',
       aging_length: '18 months',
       nom: 'NOM 1493',
+    },
+  },
+
+  // =========================================================================
+  // COCKTAILS — placeholder menu
+  //
+  // Dummy content, standing in until the real cocktail programme is written
+  // up. Specs, prices and photography are all invented; swap them out from the
+  // admin panel rather than editing this file once the bar is running.
+  // =========================================================================
+  {
+    name: 'The Trelawny',
+    kind: 'cocktail',
+    category: 'Cocktails',
+    subcategory: 'House Originals',
+    price_cents: 1900,
+    hero_image_url: '/images/space/subourbon-bar.jpg',
+    description:
+      'Our answer to the daiquiri, built on high-ester Jamaican pot still rum and stretched out with a little sherry so the funk has somewhere to land.',
+    tasting_notes: 'Overripe banana, lime oil and salted almond, with a dry, faintly briny finish.',
+    specs: {
+      build: '1.5 oz Hampden Estate 8 Year · 0.5 oz fino sherry · 0.75 oz lime · 0.5 oz demerara syrup · 2 dashes saline',
+      method: 'Shaken, fine strained',
+      base_spirit: 'Jamaican rum',
+      glassware: 'Coupe',
+      ice: 'None — served up',
+      garnish: 'Lime leaf',
+      creator: 'Bar team, 2026',
+    },
+  },
+  {
+    name: 'Executive Order',
+    kind: 'cocktail',
+    category: 'Cocktails',
+    subcategory: 'House Originals',
+    price_cents: 2100,
+    hero_image_url: '/images/space/subourbon-executive-bottles.jpg',
+    description:
+      'A split-base old fashioned that leans on the vault. Bourbon for the spine, aged agave for the smoke, and a bar spoon of amaro to keep it from getting comfortable.',
+    tasting_notes: 'Baking spice and cooked agave up front, then cocoa, orange peel and a long bitter tail.',
+    specs: {
+      build: '1.5 oz bourbon · 0.5 oz añejo tequila · 0.25 oz Amaro Nonino · 1 tsp demerara · Angostura',
+      method: 'Stirred',
+      base_spirit: 'Bourbon & agave',
+      glassware: 'Rocks',
+      ice: 'Single large cube',
+      garnish: 'Expressed orange peel',
+      batched: 'Yes — spirits pre-batched, bittered to order',
+      creator: 'Bar team, 2026',
+    },
+  },
+  {
+    name: 'Vieux Carré',
+    kind: 'cocktail',
+    category: 'Cocktails',
+    subcategory: 'Stirred',
+    price_cents: 1800,
+    hero_image_url: '/images/space/subourbon-vault.jpg',
+    description:
+      'The Hotel Monteleone\'s house drink, and still the most complete argument for stirring two spirits together. Rye and cognac share the base; Bénédictine does the reconciling.',
+    tasting_notes: 'Honeyed herbs, dried cherry and rye spice, with a soft, sweet-bitter middle.',
+    specs: {
+      build: '1 oz rye · 1 oz cognac · 1 oz sweet vermouth · 1 tsp Bénédictine · Peychaud\'s & Angostura',
+      method: 'Stirred',
+      base_spirit: 'Rye & cognac',
+      glassware: 'Rocks',
+      ice: 'Single large cube',
+      garnish: 'Lemon peel',
+      origin: 'New Orleans, 1938',
+      creator: 'Walter Bergeron',
+    },
+  },
+  {
+    name: 'Hanky Panky',
+    kind: 'cocktail',
+    category: 'Cocktails',
+    subcategory: 'Stirred',
+    price_cents: 1700,
+    hero_image_url: '/images/space/subourbon-bar.jpg',
+    description:
+      'A sweet martini with two dashes of Fernet-Branca in it — which sounds like a rounding error and is in fact the whole drink.',
+    tasting_notes: 'Vermouth sweetness cut clean by menthol and bitter root. Short, dry finish.',
+    specs: {
+      build: '1.5 oz London dry gin · 1.5 oz sweet vermouth · 2 dashes Fernet-Branca',
+      method: 'Stirred',
+      base_spirit: 'Gin',
+      glassware: 'Coupe',
+      ice: 'None — served up',
+      garnish: 'Expressed orange peel',
+      origin: 'The Savoy, London, c. 1903',
+      creator: 'Ada Coleman',
+    },
+  },
+  {
+    name: 'Paper Plane',
+    kind: 'cocktail',
+    category: 'Cocktails',
+    subcategory: 'Shaken',
+    price_cents: 1800,
+    hero_image_url: '/images/space/subourbon-founders-wide.jpg',
+    description:
+      'Four equal parts, no wasted motion. The modern bar\'s favourite equal-parts drink, and the one that made Amaro Nonino a house staple.',
+    tasting_notes: 'Bright citrus over orange-peel bitterness, bourbon warmth underneath.',
+    specs: {
+      build: '0.75 oz bourbon · 0.75 oz Amaro Nonino · 0.75 oz Aperol · 0.75 oz lemon',
+      method: 'Shaken, fine strained',
+      base_spirit: 'Bourbon',
+      glassware: 'Coupe',
+      ice: 'None — served up',
+      garnish: 'None',
+      origin: 'Chicago, 2008',
+      creator: 'Sam Ross',
+    },
+  },
+  {
+    name: 'Naked & Famous',
+    kind: 'cocktail',
+    category: 'Cocktails',
+    subcategory: 'Shaken',
+    price_cents: 1900,
+    hero_image_url: '/images/space/subourbon-vault.jpg',
+    description:
+      'The Last Word, rebuilt around mezcal and Yellow Chartreuse. Smoke and bitterness held in balance by a lot of lime.',
+    tasting_notes: 'Woodsmoke, grapefruit pith and alpine herbs. Long and dry.',
+    specs: {
+      build: '0.75 oz mezcal · 0.75 oz Yellow Chartreuse · 0.75 oz Aperol · 0.75 oz lime',
+      method: 'Shaken, fine strained',
+      base_spirit: 'Mezcal',
+      glassware: 'Coupe',
+      ice: 'None — served up',
+      garnish: 'None',
+      origin: 'New York, 2011',
+      creator: 'Joaquín Simó',
+    },
+  },
+  {
+    name: 'Improved Ranch Water',
+    kind: 'cocktail',
+    category: 'Cocktails',
+    subcategory: 'Highballs & Spritz',
+    price_cents: 1600,
+    hero_image_url: '/images/space/subourbon-bar.jpg',
+    description:
+      'Blanco tequila, lime and Topo Chico, with a quarter ounce of sotol to give it a green, vegetal edge the original never had.',
+    tasting_notes: 'Crisp and saline, with cucumber skin and white pepper on the finish.',
+    specs: {
+      build: '1.5 oz blanco tequila · 0.25 oz sotol · 0.75 oz lime · pinch of salt · Topo Chico',
+      method: 'Built in glass',
+      base_spirit: 'Tequila',
+      glassware: 'Highball',
+      ice: 'Collins spear',
+      garnish: 'Lime wedge',
+    },
+  },
+  {
+    name: 'Amaro Spritz',
+    kind: 'cocktail',
+    category: 'Cocktails',
+    subcategory: 'Highballs & Spritz',
+    price_cents: 1500,
+    hero_image_url: '/images/space/subourbon-founders-wide.jpg',
+    description:
+      'Whatever amaro is open and interesting, lengthened with prosecco and soda. Ask what is pouring — it moves.',
+    tasting_notes: 'Depends entirely on the bottle. Always bitter, always low-proof, always cold.',
+    specs: {
+      build: '2 oz amaro of the day · 3 oz prosecco · 1 oz soda',
+      method: 'Built in glass',
+      base_spirit: 'Amaro',
+      glassware: 'Wine glass',
+      ice: 'Cubed, to the rim',
+      garnish: 'Orange half-wheel',
+      batched: 'No — built to order',
+    },
+  },
+  {
+    name: 'Garden Gate',
+    kind: 'cocktail',
+    category: 'Cocktails',
+    subcategory: 'Zero Proof',
+    price_cents: 1200,
+    hero_image_url: '/images/space/subourbon-vault.jpg',
+    description:
+      'A zero-proof drink built like a real one: verjus for acid, a saline solution for length, and a snap pea shrub that does the work a spirit normally would.',
+    tasting_notes: 'Green and savoury, with cucumber, celery leaf and a clean tart finish.',
+    specs: {
+      build: '1.5 oz snap pea shrub · 1 oz verjus blanc · 0.5 oz honey · 3 dashes saline · soda',
+      method: 'Shaken, topped',
+      base_spirit: 'None',
+      glassware: 'Highball',
+      ice: 'Collins spear',
+      garnish: 'Celery leaf',
+      creator: 'Bar team, 2026',
     },
   },
 ]

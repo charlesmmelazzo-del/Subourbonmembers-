@@ -10,7 +10,7 @@ export type AppRole = 'member' | 'manager' | 'admin'
 export type MemberTier = 'senior' | 'junior' | 'comember'
 export type MemberStatus = 'active' | 'paused' | 'removed'
 export type CoMemberStatus = 'invited' | 'accepted' | 'removed'
-export type CatalogKind = 'spirit' | 'beer' | 'wine'
+export type CatalogKind = 'spirit' | 'beer' | 'wine' | 'cocktail'
 export type CatalogStatus = 'active' | 'eightysixed' | 'locker_only' | 'draft' | 'archived'
 export type EventKind = 'private_closure' | 'tasting' | 'concert' | 'general'
 export type EventStatus = 'draft' | 'published' | 'cancelled'
@@ -177,6 +177,27 @@ export type CatalogMedia = {
 }
 
 export type Favorite = { member_id: string; item_id: string; created_at: string }
+
+/** A hand-curated "drink this next", hung off a single bottle. */
+export type ItemRecommendation = {
+  item_id: string
+  recommended_item_id: string
+  note: string | null
+  sort_order: number
+  created_by: string | null
+  created_at: string
+}
+
+export type StaffPick = {
+  id: string
+  item_id: string
+  /** The Monday this pick runs from. */
+  week_of: string
+  blurb: string | null
+  sort_order: number
+  picked_by: string | null
+  created_at: string
+}
 
 export type MemberList = {
   id: string
@@ -465,6 +486,16 @@ export type Database = {
         [FK<'item_id', 'catalog_items'>]
       >
       favorites: Table<Favorite, 'created_at', [MemberFK, FK<'item_id', 'catalog_items'>]>
+      item_recommendations: Table<
+        ItemRecommendation,
+        'note' | 'sort_order' | 'created_by' | 'created_at',
+        [FK<'item_id', 'catalog_items'>, FK<'recommended_item_id', 'catalog_items'>]
+      >
+      staff_picks: Table<
+        StaffPick,
+        'id' | 'blurb' | 'sort_order' | 'picked_by' | 'created_at',
+        [FK<'item_id', 'catalog_items'>, MemberFK<'picked_by'>]
+      >
       member_lists: Table<MemberList, Generated, [MemberFK]>
       member_list_items: Table<
         MemberListItem,
@@ -524,7 +555,33 @@ export type Database = {
     // section. `Record<string, never>` fails its GenericSchema constraint and
     // silently degrades every query result to `never`.
     Views: { [_ in never]: never }
-    Functions: { [_ in never]: never }
+    Functions: {
+      /**
+       * Collaborative filtering over favorites, scoped to the caller. See
+       * supabase/migrations/0004_recommendations.sql.
+       */
+      dealers_choice: {
+        Args: { per_kind?: number }
+        Returns: {
+          item_id: string
+          kind: CatalogKind
+          score: number
+          untried: boolean
+          seed_item_id: string | null
+          basis: 'peers' | 'popular'
+        }[]
+      }
+      recommended_with: {
+        Args: { target: string; want?: number }
+        Returns: {
+          item_id: string
+          source: 'staff' | 'favorites'
+          note: string | null
+          score: number
+        }[]
+      }
+      week_of: { Args: { d?: string }; Returns: string }
+    }
     Enums: {
       app_role: AppRole
       member_tier: MemberTier

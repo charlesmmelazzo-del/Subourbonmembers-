@@ -4,13 +4,16 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import {
-  ChevronLeft, ChevronRight, Heart, ListPlus, Share2, StickyNote, Wine, X,
+  ChevronLeft, ChevronRight, Heart, ListPlus, Share2, StickyNote, X,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { createClient } from '@/lib/supabase/client'
 import { populatedSpecs, extraSpecs } from '@/lib/catalog'
+import { useScrollLock } from '@/lib/useScrollLock'
 import { shortDate } from '@/lib/format'
 import { DiamondRule } from '@/components/ui/Logo'
+import { iconForKind } from './kindIcon'
+import { RecommendedWith } from './RecommendedWith'
 import { TastingNoteEditor } from './TastingNoteEditor'
 import { AddToListDialog } from './AddToListDialog'
 import { ShareDialog } from './ShareDialog'
@@ -25,10 +28,12 @@ type Props = {
   onPrev?: () => void
   onNext?: () => void
   position?: { index: number; total: number }
+  /** Jump the sheet to another bottle, from the recommendation rail. */
+  onOpenItem?: (id: string) => void
 }
 
 export function ItemSheet({
-  item, memberId, isFavorite, onToggleFavorite, onClose, onPrev, onNext, position,
+  item, memberId, isFavorite, onToggleFavorite, onClose, onPrev, onNext, position, onOpenItem,
 }: Props) {
   const [note, setNote] = useState<TastingNote | null>(null)
   const [orderDates, setOrderDates] = useState<string[]>([])
@@ -70,6 +75,8 @@ export function ItemSheet({
     return () => { cancelled = true }
   }, [item.id, memberId])
 
+  useScrollLock()
+
   // Keyboard: escape closes, arrows flip through the filtered list.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -79,11 +86,7 @@ export function ItemSheet({
       if (e.key === 'ArrowRight') onNext?.()
     }
     window.addEventListener('keydown', onKey)
-    document.body.style.overflow = 'hidden'
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = ''
-    }
+    return () => window.removeEventListener('keydown', onKey)
   }, [onClose, onPrev, onNext, panel])
 
   async function toggleFavorite() {
@@ -104,6 +107,7 @@ export function ItemSheet({
   const extras = extraSpecs(item.category, item.subcategory, item.specs)
   const images = item.media?.filter((m) => m.kind === 'image') ?? []
   const videos = item.media?.filter((m) => m.kind === 'youtube') ?? []
+  const Placeholder = iconForKind(item.kind)
 
   return (
     <>
@@ -195,7 +199,7 @@ export function ItemSheet({
               />
             ) : (
               <div className="flex h-full items-center justify-center">
-                <Wine className="h-14 w-14 text-gold/20" strokeWidth={0.7} />
+                <Placeholder className="h-14 w-14 text-gold/20" strokeWidth={0.7} />
               </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-ink-raised via-ink-raised/50 to-transparent" />
@@ -379,6 +383,9 @@ export function ItemSheet({
                 )}
               </div>
             )}
+
+            {/* ---- Drink this next ---- */}
+            {onOpenItem && <RecommendedWith itemId={item.id} onOpenItem={onOpenItem} />}
 
             {/* ---- Media ---- */}
             {(images.length > 0 || videos.length > 0) && (

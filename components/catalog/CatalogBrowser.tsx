@@ -1,13 +1,17 @@
 'use client'
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Heart, Search, SlidersHorizontal, StickyNote, X } from 'lucide-react'
+import { Heart, Search, Sparkles, Star, StickyNote, X } from 'lucide-react'
 import clsx from 'clsx'
-import { TAXONOMY } from '@/lib/catalog'
+import { taxonFor } from '@/lib/catalog'
+import { CategoryPanel } from './CategoryPanel'
+import { DealersChoicePanel } from './DealersChoicePanel'
 import { ItemCard } from './ItemCard'
 import { ItemSheet } from './ItemSheet'
+import { MenuAccordion } from './MenuAccordion'
+import { StaffPicksPanel } from './StaffPicksPanel'
 import type { CatalogItemFull } from '@/lib/types'
 
 type Props = {
@@ -17,35 +21,55 @@ type Props = {
   ratedIds: Record<string, number | null>
   orderedIds: string[]
   initialItemId?: string
+  initialCategory?: string
+  initialSubcategory?: string
+  /** Present when the URL asked for the whole category rather than one branch. */
+  initialShowAll?: boolean
+  initialQuery?: string
   eightysixed?: boolean
 }
 
 type Filter = 'all' | 'favorites' | 'noted' | 'ordered'
 
+/** Which category the slide-up panel is showing. `subcategory: null` = all of it. */
+type Selection = { category: string; subcategory: string | null }
+
+/** Only one slide-up at a time — they all occupy the same layer. */
+type Board = 'dealers' | 'staff' | null
+
 export function CatalogBrowser({
-  items, memberId, favoriteIds, ratedIds, orderedIds, initialItemId, eightysixed,
+  items, memberId, favoriteIds, ratedIds, orderedIds,
+  initialItemId, initialCategory, initialSubcategory, initialShowAll, initialQuery,
+  eightysixed,
 }: Props) {
   const router = useRouter()
-  const params = useSearchParams()
 
-  const [query, setQuery] = useState(params.get('q') ?? '')
+  const [query, setQuery] = useState(initialQuery ?? '')
   const deferredQuery = useDeferredValue(query)
-  const [category, setCategory] = useState<string | null>(params.get('category'))
-  const [subcategory, setSubcategory] = useState<string | null>(params.get('sub'))
   const [filter, setFilter] = useState<Filter>('all')
+  const [expanded, setExpanded] = useState<string | null>(initialCategory ?? null)
+  const [selection, setSelection] = useState<Selection | null>(() => {
+    if (!initialCategory) return null
+    if (initialSubcategory) return { category: initialCategory, subcategory: initialSubcategory }
+    return initialShowAll ? { category: initialCategory, subcategory: null } : null
+  })
+  const [board, setBoard] = useState<Board>(null)
   const [favorites, setFavorites] = useState(new Set(favoriteIds))
   const [openId, setOpenId] = useState<string | null>(initialItemId ?? null)
-  const [filtersOpen, setFiltersOpen] = useState(false)
 
   const ordered = useMemo(() => new Set(orderedIds), [orderedIds])
 
-  // Everything filters client-side: the whole list is a few hundred rows and
+  // Searching or filtering means you no longer want the menu's shape — you want
+  // the matches. The accordion steps aside for a flat grid.
+  const searching = deferredQuery.trim().length > 0 || filter !== 'all'
+  const browsing = searching || eightysixed
+
+  // Everything filters client-side: the whole menu is a few hundred rows and
   // instant response matters more here than payload size.
-  const visible = useMemo(() => {
+  const results = useMemo(() => {
+    if (!browsing) return []
     const q = deferredQuery.trim().toLowerCase()
     return items.filter((item) => {
-      if (category && item.category !== category) return false
-      if (subcategory && item.subcategory !== subcategory) return false
       if (filter === 'favorites' && !favorites.has(item.id)) return false
       if (filter === 'noted' && !(item.id in ratedIds)) return false
       if (filter === 'ordered' && !ordered.has(item.id)) return false
@@ -60,22 +84,35 @@ export function CatalogBrowser({
         item.description?.toLowerCase().includes(q)
       )
     })
-  }, [items, deferredQuery, category, subcategory, filter, favorites, ratedIds, ordered])
+  }, [browsing, items, deferredQuery, filter, favorites, ratedIds, ordered])
 
-  const openIndex = visible.findIndex((i) => i.id === openId)
-  const openItem = openIndex >= 0 ? visible[openIndex] : items.find((i) => i.id === openId) ?? null
+  const panelItems = useMemo(() => {
+    if (!selection) return []
+    return items.filter(
+      (item) =>
+        item.category === selection.category &&
+        (selection.subcategory === null || item.subcategory === selection.subcategory)
+    )
+  }, [items, selection])
+
+  // Prev/next in the item sheet walks whatever list you opened it from.
+  const context = selection ? panelItems : results
+  const openIndex = context.findIndex((i) => i.id === openId)
+  const openItem = openIndex >= 0 ? context[openIndex] : items.find((i) => i.id === openId) ?? null
 
   // Keep the URL shareable without re-running the server query on every keystroke.
   useEffect(() => {
     const next = new URLSearchParams()
+    const category = selection?.category ?? expanded
     if (category) next.set('category', category)
-    if (subcategory) next.set('sub', subcategory)
+    if (selection?.subcategory) next.set('sub', selection.subcategory)
+    else if (selection) next.set('all', '1')
     if (query) next.set('q', query)
     if (openId) next.set('item', openId)
     if (eightysixed) next.set('view', '86')
     const qs = next.toString()
     window.history.replaceState(null, '', qs ? `/spirits?${qs}` : '/spirits')
-  }, [category, subcategory, query, openId, eightysixed])
+  }, [expanded, selection, query, openId, eightysixed])
 
   const toggleFavorite = useCallback((id: string, on: boolean) => {
     setFavorites((prev) => {
@@ -88,75 +125,67 @@ export function CatalogBrowser({
   const step = useCallback(
     (delta: number) => {
       if (openIndex < 0) return
-      const next = visible[openIndex + delta]
+      const next = context[openIndex + delta]
       if (next) setOpenId(next.id)
     },
-    [openIndex, visible]
+    [openIndex, context]
   )
 
-  const activeTaxon = TAXONOMY.find((t) => t.category === category)
+  const categoryCount = useMemo(
+    () => new Set(items.map((i) => i.category)).size,
+    [items]
+  )
+  const selectedTaxon = selection ? taxonFor(selection.category) : undefined
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-5xl">
       {/* ---- Header ---- */}
-      <div className="mb-6">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <p className="label">{eightysixed ? 'No longer stocked' : 'The backbar'}</p>
-            <h1 className="mt-1.5 font-display text-3xl sm:text-4xl">
-              {eightysixed ? 'The 86 List' : category ?? 'Everything'}
-            </h1>
-            {activeTaxon?.blurb && !eightysixed && (
-              <p className="mt-1.5 text-sm italic text-cream-muted">{activeTaxon.blurb}</p>
-            )}
-          </div>
-          <button
-            onClick={() => router.push(eightysixed ? '/spirits' : '/spirits?view=86')}
-            className="shrink-0 text-xs text-cream-muted transition-colors hover:text-gold"
-          >
-            {eightysixed ? 'Back to the list' : 'View 86 list'}
-          </button>
+      <div className="mb-6 flex items-end justify-between gap-4">
+        <div>
+          <p className="label">{eightysixed ? 'No longer stocked' : 'The backbar'}</p>
+          <h1 className="mt-1.5 font-display text-3xl sm:text-4xl">
+            {eightysixed ? 'The 86 List' : 'Menu'}
+          </h1>
+          {!eightysixed && (
+            <p className="mt-1.5 text-sm text-cream-muted">
+              {items.length} {items.length === 1 ? 'pour' : 'pours'} across {categoryCount}{' '}
+              {categoryCount === 1 ? 'category' : 'categories'}. Open one to look inside.
+            </p>
+          )}
         </div>
+        <button
+          onClick={() => router.push(eightysixed ? '/spirits' : '/spirits?view=86')}
+          className="shrink-0 text-xs text-cream-muted transition-colors hover:text-gold"
+        >
+          {eightysixed ? 'Back to the menu' : 'View 86 list'}
+        </button>
       </div>
 
-      {/* ---- Search + filters ---- */}
+      {/* ---- Search + personal filters ---- */}
       <div className="sticky top-14 z-20 -mx-4 mb-5 border-b border-ink-line/60 bg-ink/90 px-4 py-3 backdrop-blur lg:-mx-8 lg:px-8">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cream-muted" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by name, producer, region, or a word in the description…"
-              className="input pl-9 pr-9"
-              type="search"
-            />
-            {query && (
-              <button
-                onClick={() => setQuery('')}
-                aria-label="Clear search"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-cream-muted hover:text-cream"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-          <button
-            onClick={() => setFiltersOpen(!filtersOpen)}
-            aria-expanded={filtersOpen}
-            className={clsx(
-              'btn-ghost shrink-0 px-3 lg:hidden',
-              (category || filter !== 'all') && 'border-gold/50 text-gold'
-            )}
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-          </button>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cream-muted" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by name, producer, region, or a word in the description…"
+            className="input pl-9 pr-9"
+            type="search"
+          />
+          {query && (
+            <button
+              onClick={() => setQuery('')}
+              aria-label="Clear search"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-cream-muted hover:text-cream"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
-        {/* Personal filters */}
         <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto">
           {([
-            ['all', 'All', null],
+            ['all', 'The menu', null],
             ['favorites', 'Favorites', Heart],
             ['noted', 'My notes', StickyNote],
             ['ordered', "I've ordered", null],
@@ -178,108 +207,33 @@ export function CatalogBrowser({
         </div>
       </div>
 
-      <div className="flex gap-8">
-        {/* ---- Category rail ---- */}
-        <aside
-          className={clsx(
-            'w-52 shrink-0 lg:block',
-            filtersOpen ? 'block' : 'hidden'
-          )}
-        >
-          <div className="lg:sticky lg:top-44">
-            <button
-              onClick={() => { setCategory(null); setSubcategory(null) }}
-              className={clsx(
-                'mb-1 w-full rounded-lg px-3 py-1.5 text-left text-sm transition-colors',
-                !category ? 'bg-gold/10 text-gold-bright' : 'text-cream/70 hover:text-cream'
-              )}
-            >
-              Everything
-              <span className="ml-2 text-[11px] text-cream-muted">{items.length}</span>
-            </button>
+      {/* ---- The two boards ---- */}
+      <div className="mb-5 grid gap-2 sm:grid-cols-2">
+        <BoardButton
+          icon={Sparkles}
+          title="Dealer's Choice"
+          detail="Picked from what you already like."
+          onClick={() => setBoard('dealers')}
+        />
+        <BoardButton
+          icon={Star}
+          title="Staff Picks"
+          detail="What the bar team is pouring this week."
+          onClick={() => setBoard('staff')}
+        />
+      </div>
 
-            {TAXONOMY.map((taxon) => {
-              const count = items.filter((i) => i.category === taxon.category).length
-              if (!count) return null
-              const on = category === taxon.category
-              return (
-                <div key={taxon.category}>
-                  <button
-                    onClick={() => {
-                      setCategory(on ? null : taxon.category)
-                      setSubcategory(null)
-                    }}
-                    className={clsx(
-                      'w-full rounded-lg px-3 py-1.5 text-left text-sm transition-colors',
-                      on ? 'bg-gold/10 text-gold-bright' : 'text-cream/70 hover:text-cream'
-                    )}
-                  >
-                    {taxon.category}
-                    <span className="ml-2 text-[11px] text-cream-muted">{count}</span>
-                  </button>
-
-                  <AnimatePresence initial={false}>
-                    {on && taxon.subcategories && (
-                      <motion.ul
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.18 }}
-                        className="overflow-hidden pl-3"
-                      >
-                        {taxon.subcategories.map((sub) => {
-                          const subCount = items.filter((i) => i.subcategory === sub).length
-                          if (!subCount) return null
-                          return (
-                            <li key={sub}>
-                              <button
-                                onClick={() =>
-                                  setSubcategory(subcategory === sub ? null : sub)
-                                }
-                                className={clsx(
-                                  'w-full rounded-lg px-3 py-1 text-left text-[13px] transition-colors',
-                                  subcategory === sub
-                                    ? 'text-gold-bright'
-                                    : 'text-cream-muted hover:text-cream'
-                                )}
-                              >
-                                {sub}
-                                <span className="ml-2 text-[10px] opacity-60">{subCount}</span>
-                              </button>
-                            </li>
-                          )
-                        })}
-                      </motion.ul>
-                    )}
-                  </AnimatePresence>
-                </div>
-              )
-            })}
-          </div>
-        </aside>
-
-        {/* ---- Grid ---- */}
-        <div className="min-w-0 flex-1">
+      {/* ---- Body: the menu, or search results ---- */}
+      {browsing ? (
+        <>
           <p className="mb-3 text-xs text-cream-muted">
-            {visible.length} {visible.length === 1 ? 'bottle' : 'bottles'}
-            {filter !== 'all' && ' in this filter'}
+            {results.length} {results.length === 1 ? 'result' : 'results'}
           </p>
-
-          {visible.length === 0 ? (
-            <div className="card px-6 py-16 text-center">
-              <p className="font-display text-lg">Nothing here.</p>
-              <p className="mt-2 text-sm text-cream-muted">
-                {filter !== 'all'
-                  ? 'Try clearing the filter, or start favouriting things.'
-                  : 'Try a different search, or a different category.'}
-              </p>
-            </div>
+          {results.length === 0 ? (
+            <EmptyState filtered={filter !== 'all'} />
           ) : (
-            <motion.div
-              layout
-              className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4"
-            >
-              {visible.map((item) => (
+            <motion.div layout className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+              {results.map((item) => (
                 <ItemCard
                   key={item.id}
                   item={item}
@@ -291,8 +245,68 @@ export function CatalogBrowser({
               ))}
             </motion.div>
           )}
-        </div>
-      </div>
+        </>
+      ) : items.length === 0 ? (
+        <EmptyState filtered={false} />
+      ) : (
+        <MenuAccordion
+          items={items}
+          expanded={expanded}
+          onToggle={(category) =>
+            setExpanded((prev) => (prev === category ? null : category))
+          }
+          // Deliberately does not touch `expanded`: a category with no
+          // subcategories opens its panel straight from the header, and
+          // marking it expanded would leave it lit up with nothing under it.
+          onSelect={(category, subcategory) => setSelection({ category, subcategory })}
+        />
+      )}
+
+      <AnimatePresence>
+        {board === 'dealers' && (
+          <DealersChoicePanel
+            key="dealers"
+            items={items}
+            favorites={favorites}
+            ratedIds={ratedIds}
+            ordered={ordered}
+            onOpenItem={setOpenId}
+            onClose={() => setBoard(null)}
+            takesEscape={!openItem}
+          />
+        )}
+        {board === 'staff' && (
+          <StaffPicksPanel
+            key="staff"
+            items={items}
+            favorites={favorites}
+            ratedIds={ratedIds}
+            ordered={ordered}
+            onOpenItem={setOpenId}
+            onClose={() => setBoard(null)}
+            takesEscape={!openItem}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ---- Category panel ---- */}
+      <AnimatePresence>
+        {selection && (
+          <CategoryPanel
+            key={`${selection.category}:${selection.subcategory ?? '*'}`}
+            title={selection.subcategory ?? selection.category}
+            eyebrow={selection.subcategory ? selection.category : 'The backbar'}
+            blurb={selection.subcategory ? undefined : selectedTaxon?.blurb}
+            items={panelItems}
+            favorites={favorites}
+            ratedIds={ratedIds}
+            ordered={ordered}
+            onOpenItem={setOpenId}
+            onClose={() => setSelection(null)}
+            takesEscape={!openItem}
+          />
+        )}
+      </AnimatePresence>
 
       {/* ---- Detail sheet ---- */}
       <AnimatePresence>
@@ -305,11 +319,51 @@ export function CatalogBrowser({
             onToggleFavorite={(on) => toggleFavorite(openItem.id, on)}
             onClose={() => setOpenId(null)}
             onPrev={openIndex > 0 ? () => step(-1) : undefined}
-            onNext={openIndex >= 0 && openIndex < visible.length - 1 ? () => step(1) : undefined}
-            position={openIndex >= 0 ? { index: openIndex + 1, total: visible.length } : undefined}
+            onNext={openIndex >= 0 && openIndex < context.length - 1 ? () => step(1) : undefined}
+            position={openIndex >= 0 ? { index: openIndex + 1, total: context.length } : undefined}
+            onOpenItem={setOpenId}
           />
         )}
       </AnimatePresence>
+    </div>
+  )
+}
+
+function BoardButton({
+  icon: Icon, title, detail, onClick,
+}: {
+  icon: typeof Sparkles
+  title: string
+  detail: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="group flex items-center gap-3.5 rounded-xl border border-gold/25 bg-gradient-to-r from-gold/[0.07] to-transparent px-4 py-3.5 text-left transition-colors duration-base hover:border-gold/60 hover:from-gold/[0.12]"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gold/30 text-gold transition-colors group-hover:border-gold/60 group-hover:text-gold-bright">
+        <Icon className="h-4 w-4" strokeWidth={1.5} />
+      </span>
+      <span className="min-w-0">
+        <span className="block font-display text-lg leading-tight text-cream group-hover:text-gold-bright">
+          {title}
+        </span>
+        <span className="mt-0.5 block text-xs text-cream-muted">{detail}</span>
+      </span>
+    </button>
+  )
+}
+
+function EmptyState({ filtered }: { filtered: boolean }) {
+  return (
+    <div className="card px-6 py-16 text-center">
+      <p className="font-display text-lg">Nothing here.</p>
+      <p className="mt-2 text-sm text-cream-muted">
+        {filtered
+          ? 'Try clearing the filter, or start favouriting things.'
+          : 'Try a different search, or a different category.'}
+      </p>
     </div>
   )
 }

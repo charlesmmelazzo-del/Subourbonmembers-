@@ -81,7 +81,7 @@ export default async function TonightPage() {
         <QuickCard
           href="/spirits"
           icon={Wine}
-          title="The List"
+          title="Menu"
           detail="Search the backbar, keep notes, build lists."
         />
         <QuickCard

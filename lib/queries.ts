@@ -2,7 +2,7 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { quarterOf } from '@/lib/format'
 import type {
-  CatalogItemFull, EventRow, Profile, SalesTransaction,
+  CatalogItemFull, CatalogKind, EventRow, Profile, SalesTransaction,
 } from '@/lib/types'
 
 /**
@@ -23,7 +23,7 @@ export async function getCatalogItem(id: string): Promise<CatalogItemFull | null
 }
 
 export type CatalogFilters = {
-  kind?: 'spirit' | 'beer' | 'wine'
+  kind?: CatalogKind
   category?: string
   subcategory?: string
   search?: string

@@ -5,15 +5,18 @@ import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
 import { createClient } from '@/lib/supabase/client'
 import { CATEGORIES, TAXONOMY, humanize, kindFor, specSheet } from '@/lib/catalog'
+import { ItemRecommendations } from './ItemRecommendations'
 import type { CatalogItem, Producer } from '@/lib/types'
 
 type Draft = Partial<CatalogItem> & { __sources?: string[] }
 
 export function CatalogItemForm({
-  item, producers, onClose, onSaved,
+  item, producers, catalog, onClose, onSaved,
 }: {
   item: Draft
   producers: Producer[]
+  /** Every bottle, so pairings can point at one. */
+  catalog: CatalogItem[]
   onClose: () => void
   onSaved: () => void
 }) {
@@ -132,7 +135,7 @@ export function CatalogItemForm({
           </button>
           <button onClick={() => save('active')} disabled={busy} className="btn-gold flex-1">
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-            Publish to the list
+            Publish to the menu
           </button>
         </div>
       }
@@ -303,6 +306,21 @@ export function CatalogItemForm({
             </div>
           </div>
         </div>
+
+        {/*
+          Pairings live in their own table and need a row to hang off, so they
+          only appear once the bottle has been saved at least once.
+        */}
+        {form.id ? (
+          <ItemRecommendations itemId={form.id} catalog={catalog} />
+        ) : (
+          <div className="border-t border-ink-line pt-5">
+            <p className="label mb-1">Recommends</p>
+            <p className="text-[11px] text-cream-muted">
+              Save this bottle first, then reopen it to pair it with others.
+            </p>
+          </div>
+        )}
 
         {form.__sources && form.__sources.length > 0 && (
           <div className="border-t border-ink-line pt-4">

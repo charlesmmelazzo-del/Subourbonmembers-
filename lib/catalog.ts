@@ -9,7 +9,7 @@
  * deliberate rather than broken.
  */
 
-export type CatalogKind = 'spirit' | 'beer' | 'wine'
+export type CatalogKind = 'spirit' | 'beer' | 'wine' | 'cocktail'
 
 export type SpecField = {
   key: string
@@ -27,6 +27,12 @@ export type Taxon = {
 }
 
 export const TAXONOMY: Taxon[] = [
+  {
+    category: 'Cocktails',
+    kind: 'cocktail',
+    subcategories: ['House Originals', 'Stirred', 'Shaken', 'Highballs & Spritz', 'Zero Proof'],
+    blurb: 'Made to order, and made the same way every time.',
+  },
   {
     category: 'Rum',
     kind: 'spirit',
@@ -151,7 +157,31 @@ const AGAVE_BASE: SpecField[] = [
   { key: 'aging_length', label: 'Aging' },
 ]
 
+/**
+ * Cocktails have no producer and no barrel — the spec sheet is the recipe and
+ * the service detail around it.
+ */
+const COCKTAIL_BASE: SpecField[] = [
+  { key: 'build', label: 'Build', format: 'prose' },
+  { key: 'method', label: 'Method', hint: 'Stirred, shaken, built, thrown' },
+  { key: 'base_spirit', label: 'Base' },
+  { key: 'glassware', label: 'Glass' },
+  { key: 'ice', label: 'Ice' },
+  { key: 'garnish', label: 'Garnish' },
+  { key: 'batched', label: 'Batched' },
+  { key: 'origin', label: 'Origin' },
+  { key: 'creator', label: 'Created by' },
+]
+
 export const SPEC_SHEETS: Record<string, SpecField[]> = {
+  // --- Cocktails -----------------------------------------------------------
+  Cocktails: COCKTAIL_BASE,
+  'House Originals': COCKTAIL_BASE,
+  Stirred: COCKTAIL_BASE,
+  Shaken: COCKTAIL_BASE,
+  'Highballs & Spritz': COCKTAIL_BASE,
+  'Zero Proof': COCKTAIL_BASE,
+
   // --- Rum -----------------------------------------------------------------
   Rum: RUM_BASE,
   Jamaican: [

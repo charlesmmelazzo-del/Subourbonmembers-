@@ -97,7 +97,7 @@ export function ToastImporter() {
             </p>
             <p className="mt-1.5 text-xs leading-relaxed text-cream-muted">
               These still count toward spend, but members will not see them in their bottle
-              history until the names line up. Add them to the list, or rename them in Toast.
+              history until the names line up. Add them to the menu, or rename them in Toast.
             </p>
             <div className="mt-3 flex flex-wrap gap-1.5">
               {result.unmatchedNames.slice(0, 30).map((n) => (

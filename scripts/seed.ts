@@ -10,7 +10,12 @@
 
 import { config } from 'dotenv'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { kindFor } from '../lib/catalog'
+import { mondayOf } from '../lib/format'
 import { PRODUCERS } from './seed-data/producers'
+import {
+  PAIRINGS, STAFF_PICKS_LAST_WEEK, STAFF_PICKS_THIS_WEEK,
+} from './seed-data/recommendations'
 import { CATALOG } from './seed-data/catalog'
 import { MEMBERS, STAFF, type SeedMember } from './seed-data/members'
 import { EVENTS } from './seed-data/events'
@@ -171,6 +176,8 @@ const SEEDED_TABLES: Array<[table: string, notNullColumn: string]> = [
   ['member_activity', 'id'],
   ['member_chits', 'id'],
   ['member_flags', 'id'],
+  ['staff_picks', 'id'],
+  ['item_recommendations', 'item_id'],
   ['catalog_media', 'id'],
   ['catalog_items', 'id'],
   ['producers', 'id'],
@@ -314,7 +321,7 @@ async function main() {
   log('producers', `${producerRows?.length ?? 0}`)
 
   const itemRows = CATALOG.map((item) => ({
-    kind: item.kind ?? 'spirit',
+    kind: item.kind ?? kindFor(item.category),
     category: item.category,
     subcategory: item.subcategory ?? null,
     name: item.name,
@@ -327,6 +334,7 @@ async function main() {
     vintage: item.vintage ?? null,
     description: item.description,
     tasting_notes: item.tasting_notes ?? null,
+    hero_image_url: item.hero_image_url ?? null,
     status: item.status ?? 'active',
     price_cents: item.price_cents ?? null,
     specs: item.specs,
@@ -365,6 +373,58 @@ async function main() {
         : []),
     ]) as never
   )
+
+  // --- Staff picks & curated pairings --------------------------------------
+  // Placeholder content so both boards have something in them on day one.
+  const itemByName = new Map(items.map((i) => [i.name as string, i.id as string]))
+  const missing: string[] = []
+  const idFor = (name: string) => {
+    const id = itemByName.get(name)
+    if (!id) missing.push(name)
+    return id
+  }
+
+  const pickRows = [
+    ...STAFF_PICKS_THIS_WEEK.map((p, order) => ({ ...p, week: mondayOf(), order })),
+    ...STAFF_PICKS_LAST_WEEK.map((p, order) => ({
+      ...p,
+      week: mondayOf(offsetDays(-7)),
+      order,
+    })),
+  ]
+    .map(({ name, blurb, week, order }) => {
+      const itemId = idFor(name)
+      return itemId
+        ? { item_id: itemId, week_of: week, blurb, sort_order: order, picked_by: adminId }
+        : null
+    })
+    .filter(Boolean)
+  await insertAll('staff_picks', pickRows as Array<Record<string, unknown>>)
+
+  const pairingRows = PAIRINGS.flatMap((pairing) => {
+    const from = idFor(pairing.item)
+    if (!from) return []
+    return pairing.recommends.flatMap((rec, order) => {
+      const to = idFor(rec.name)
+      if (!to || to === from) return []
+      return [{
+        item_id: from,
+        recommended_item_id: to,
+        note: rec.note ?? null,
+        sort_order: order,
+        created_by: adminId,
+      }]
+    })
+  })
+  await insertAll('item_recommendations', pairingRows)
+
+  if (missing.length) {
+    console.warn(
+      `  ! ${missing.length} recommendation target(s) not in the catalog, skipped: ` +
+        [...new Set(missing)].join(', ')
+    )
+  }
+  log('picks', `${pickRows.length} staff picks, ${pairingRows.length} pairings`)
 
   // --- Visits & Toast sales ------------------------------------------------
   const { data: importRow } = await db
@@ -480,11 +540,25 @@ async function main() {
     'Anniversary Bottles', 'Highball Candidates',
   ]
 
+  // Real members drink along category lines, and the recommendation engine
+  // learns from exactly that. Seeding favorites uniformly at random would give
+  // Dealer's Choice nothing but noise to work with, so each member gets a
+  // couple of categories they lean on.
+  const stockedCategories = [...new Set(activeItems.map((i) => i.category as string))]
+
   for (const [i, m] of MEMBERS.entries()) {
     const memberId = memberIds[i]
     const engagement = m.tier === 'senior' ? randInt(6, 22) : randInt(2, 10)
 
-    for (const item of sample(activeItems, engagement)) {
+    const affinities = new Set(sample(stockedCategories, 2))
+    const preferred = activeItems.filter((it) => affinities.has(it.category as string))
+    const everythingElse = activeItems.filter((it) => !affinities.has(it.category as string))
+    const picks = [
+      ...sample(preferred, Math.ceil(engagement * 0.7)),
+      ...sample(everythingElse, Math.floor(engagement * 0.3)),
+    ]
+
+    for (const item of picks) {
       favorites.push({
         member_id: memberId,
         item_id: item.id,

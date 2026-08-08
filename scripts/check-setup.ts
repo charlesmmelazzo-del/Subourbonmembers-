@@ -41,7 +41,7 @@ const EXPECTED_TABLES = [
   'member_list_items', 'tasting_notes', 'shares', 'events', 'event_media',
   'event_reservations', 'event_requests', 'message_threads', 'messages',
   'lockers', 'locker_items', 'product_requests', 'fittings', 'fitting_items',
-  'notifications', 'app_settings',
+  'notifications', 'app_settings', 'item_recommendations', 'staff_picks',
 ]
 
 async function main() {

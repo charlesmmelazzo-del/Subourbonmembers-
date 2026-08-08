@@ -2,24 +2,29 @@
 
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { Heart, StickyNote, Wine } from 'lucide-react'
+import { Heart, StickyNote } from 'lucide-react'
 import clsx from 'clsx'
-import type { CatalogItemFull } from '@/lib/types'
+import { iconForKind } from './kindIcon'
+import type { CatalogItem } from '@/lib/types'
 
 export function ItemCard({
   item, isFavorite, rating, hasOrdered, onOpen,
 }: {
-  item: CatalogItemFull
+  // Only the base row: the rails render items fetched without their producer
+  // or media, and a tile never shows either.
+  item: CatalogItem
   isFavorite: boolean
   rating: number | null
   hasOrdered: boolean
   onOpen: () => void
 }) {
+  const Placeholder = iconForKind(item.kind)
+
   return (
     <motion.button
       layout
       onClick={onOpen}
-      className="group relative overflow-hidden rounded-xl border border-ink-line bg-ink-card text-left transition-colors duration-base hover:border-gold/45"
+      className="group relative flex h-full w-full flex-col overflow-hidden rounded-xl border border-ink-line bg-ink-card text-left transition-colors duration-base hover:border-gold/45"
     >
       <div className="relative aspect-[3/4] overflow-hidden bg-vault">
         {item.hero_image_url ? (
@@ -32,7 +37,7 @@ export function ItemCard({
           />
         ) : (
           <div className="flex h-full items-center justify-center">
-            <Wine className="h-10 w-10 text-gold/20" strokeWidth={0.8} />
+            <Placeholder className="h-10 w-10 text-gold/20" strokeWidth={0.8} />
           </div>
         )}
 
@@ -59,7 +64,7 @@ export function ItemCard({
         )}
       </div>
 
-      <div className="relative -mt-8 p-3">
+      <div className="relative -mt-8 flex-1 p-3">
         <p className="line-clamp-2 font-display text-[15px] leading-tight text-cream">
           {item.name}
         </p>

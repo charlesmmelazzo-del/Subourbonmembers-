@@ -2,13 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Ban, Pencil, Plus, RotateCcw, ScanLine, Search, Wine } from 'lucide-react'
+import { Ban, Pencil, Plus, RotateCcw, ScanLine, Search, Star, Wine } from 'lucide-react'
 import clsx from 'clsx'
 import { createClient } from '@/lib/supabase/client'
 import { CATEGORIES } from '@/lib/catalog'
 import { money } from '@/lib/format'
 import { BottleScanner } from './BottleScanner'
 import { CatalogItemForm } from './CatalogItemForm'
+import { StaffPicksEditor } from './StaffPicksEditor'
 import type { CatalogItem, Producer } from '@/lib/types'
 
 type View = 'active' | 'eightysixed' | 'draft' | 'locker_only'
@@ -25,6 +26,7 @@ export function CatalogAdmin({
   const [category, setCategory] = useState<string | null>(null)
   const [scanning, setScanning] = useState(false)
   const [editing, setEditing] = useState<Partial<CatalogItem> | null>(null)
+  const [picksOpen, setPicksOpen] = useState(false)
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -62,12 +64,16 @@ export function CatalogAdmin({
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="label">The backbar</p>
-          <h1 className="mt-1.5 font-display text-3xl sm:text-4xl">The List</h1>
+          <h1 className="mt-1.5 font-display text-3xl sm:text-4xl">Menu</h1>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setScanning(true)} className="btn-gold px-3">
             <ScanLine className="h-4 w-4" />
             Scan a bottle
+          </button>
+          <button onClick={() => setPicksOpen(true)} className="btn-ghost px-3">
+            <Star className="h-4 w-4" />
+            Staff picks
           </button>
           <button
             onClick={() => setEditing({ status: 'draft', kind: 'spirit', specs: {} })}
@@ -194,10 +200,15 @@ export function CatalogAdmin({
         />
       )}
 
+      {picksOpen && (
+        <StaffPicksEditor catalog={items} onClose={() => setPicksOpen(false)} />
+      )}
+
       {editing && (
         <CatalogItemForm
           item={editing}
           producers={producers}
+          catalog={items}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); router.refresh() }}
         />
